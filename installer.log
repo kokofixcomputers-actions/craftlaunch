@@ -1,0 +1,10 @@
+JVM info: Azul Systems, Inc. - 1.8.0_482 - 25.482-b08
+java.net.preferIPv4Stack=true
+Found java version 1.8.0_482
+Option           Description                    
+------           -----------                    
+--extract        Extract the contained jar file 
+-h, --help       Help with this installer       
+--installServer  Install a server to the current
+                   directory                    
+--offline        Don't attempt any network calls

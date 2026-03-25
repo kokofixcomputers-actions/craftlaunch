@@ -1,0 +1,282 @@
+"""
+mods/metadata.py – extract mod metadata from JAR files.
+
+This module provides functionality to:
+1. Extract JAR files to temporary directories
+2. Parse mcmod.info (Forge mods)
+3. Parse mod.json (Fabric mods)
+4. Return standardized mod metadata
+"""
+
+import json
+import shutil
+import tempfile
+import zipfile
+import hashlib
+from pathlib import Path
+from typing import Dict, Optional, Any
+from functools import lru_cache
+
+# Simple in-memory cache for mod metadata
+_mod_metadata_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def extract_mod_metadata(jar_path: Path) -> Dict[str, Any]:
+    """
+    Extract metadata from a mod JAR file.
+    
+    Supports:
+    - Forge: mcmod.info
+    - Fabric: fabric.mod.json
+    
+    Returns standardized metadata dict.
+    """
+    print(f"Extracting metadata from: {jar_path.name}")
+    
+    # Skip ZIP files - they're not mod JAR files
+    if jar_path.suffix.lower() == '.zip':
+        print(f"  Skipping ZIP file: {jar_path.name}")
+        return {"error": "ZIP file - not a mod JAR"}
+    
+    if not jar_path.exists() or jar_path.suffix != '.jar':
+        print(f"  File not found or not JAR: {jar_path}")
+        return {}
+
+    print("proxessing")
+    
+    # Create cache key based on file path and modification time
+    try:
+        mtime = jar_path.stat().st_mtime
+        cache_key = f"{jar_path}_{mtime}"
+        
+        # Check cache first
+        if cache_key in _mod_metadata_cache:
+            print(f"  Using cached metadata for {jar_path.name}")
+            return _mod_metadata_cache[cache_key]
+    except OSError:
+        pass
+    
+    temp_dir = None
+    try:
+        # Create temporary directory for extraction
+        temp_dir = Path(tempfile.mkdtemp(prefix="mod_meta_"))
+        print(f"  Created temp directory: {temp_dir}")
+        
+        # Extract JAR file with size limits to prevent issues with large JARs
+        with zipfile.ZipFile(jar_path, 'r') as zip_file:
+            # Only extract metadata files to speed up processing
+            metadata_files = ['mcmod.info', 'fabric.mod.json']
+            extracted_files = []
+            
+            for file_info in zip_file.infolist():
+                # Skip directories and non-metadata files
+                if file_info.is_dir():
+                    continue
+                
+                # Extract only files we need for metadata
+                if any(meta_file in file_info.filename for meta_file in metadata_files):
+                    try:
+                        zip_file.extract(file_info, temp_dir)
+                        extracted_files.append(file_info.filename)
+                        print(f"  Extracted: {file_info.filename}")
+                    except Exception as e:
+                        print(f"  Failed to extract {file_info.filename}: {e}")
+                        # Skip files that can't be extracted
+                        continue
+            
+            if not extracted_files:
+                print(f"  No metadata files found in JAR")
+        
+        # Try Forge mcmod.info first
+        forge_info = temp_dir / "mcmod.info"
+        if forge_info.exists():
+            print(f"  Found Forge metadata file")
+            metadata = _parse_forge_metadata(forge_info)
+        else:
+            # Try nested directories for Forge
+            print(f"  Looking for Forge metadata in nested directories...")
+            for nested_dir in temp_dir.iterdir():
+                if nested_dir.is_dir():
+                    nested_forge = nested_dir / "mcmod.info"
+                    if nested_forge.exists():
+                        print(f"  Found Forge metadata in nested directory")
+                        metadata = _parse_forge_metadata(nested_forge)
+                        break
+            else:
+                print(f"  No Forge metadata found")
+                metadata = {}
+        
+        # If no Forge metadata found, try Fabric
+        if not metadata:
+            fabric_info = temp_dir / "fabric.mod.json"
+            if fabric_info.exists():
+                print(f"  Found Fabric metadata file")
+                metadata = _parse_fabric_metadata(fabric_info)
+            else:
+                # Try nested directories for Fabric
+                print(f"  Looking for Fabric metadata in nested directories...")
+                for nested_dir in temp_dir.iterdir():
+                    if nested_dir.is_dir():
+                        nested_fabric = nested_dir / "fabric.mod.json"
+                        if nested_fabric.exists():
+                            print(f"  Found Fabric metadata in nested directory")
+                            metadata = _parse_fabric_metadata(nested_fabric)
+                            break
+                else:
+                    print(f"  No Fabric metadata found")
+                    metadata = {}
+        
+        # If still no metadata, create basic info
+        if not metadata:
+            print(f"  No metadata found, creating basic info")
+            metadata = {
+                "modid": jar_path.stem,
+                "name": jar_path.stem,
+                "description": "",
+                "version": "unknown",
+                "mcversion": "unknown",
+                "author": "unknown",
+                "modloader": "unknown"
+            }
+        else:
+            print(f"  Successfully extracted metadata: {metadata.get('name', 'Unknown')}")
+        
+        # Cache the result
+        try:
+            _mod_metadata_cache[cache_key] = metadata
+            # Limit cache size to prevent memory issues
+            if len(_mod_metadata_cache) > 1000:
+                # Remove oldest entries (simple FIFO)
+                oldest_keys = list(_mod_metadata_cache.keys())[:500]
+                for key in oldest_keys:
+                    del _mod_metadata_cache[key]
+        except Exception:
+            pass
+        
+        return metadata
+        
+    except Exception as e:
+        print(f"Error extracting metadata from {jar_path}: {e}")
+        return {"error": str(e)}
+    finally:
+        if temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _parse_forge_metadata(info_path: Path) -> Dict[str, Any]:
+    """Parse Forge mcmod.info file."""
+    try:
+        with open(info_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Try to parse as JSON first (newer Forge versions)
+        try:
+            data = json.loads(content)
+            data = data[0]
+            # Handle both list and dict formats for authors
+            authors = data.get("authorList", data.get("authors", []))
+            if isinstance(authors, list):
+                author_list = authors
+            else:
+                author_list = [authors] if authors else []
+            
+            return {
+                "modid": data.get("modid", ""),
+                "name": data.get("name", ""),
+                "description": data.get("description", ""),
+                "version": data.get("version", ""),
+                "mcversion": data.get("mcversion", ""),
+                "author": _format_authors(author_list),
+                "modloader": "forge"
+            }
+        except json.JSONDecodeError:
+            pass
+        
+        # Try to parse as Java properties format (older Forge versions)
+        return _parse_java_properties(content)
+        
+    except Exception as e:
+        print(f"Error parsing Forge metadata: {e}")
+        return {}
+
+
+def _parse_fabric_metadata(info_path: Path) -> Dict[str, Any]:
+    """Parse Fabric mod.json file."""
+    try:
+        with open(info_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        data = data[0]
+        
+        # Fabric mod schema
+        return {
+            "modid": data.get("id", ""),
+            "name": data.get("name", ""),
+            "description": data.get("description", ""),
+            "version": data.get("version", ""),
+            "mcversion": _extract_mc_version_from_fabric(data),
+            "author": _format_authors(data.get("authors", [])),
+            "modloader": "fabric"
+        }
+        
+    except Exception as e:
+        print(f"Error parsing Fabric metadata: {e}")
+        return {}
+
+
+def _parse_java_properties(content: str) -> Dict[str, Any]:
+    """Parse Java properties format from mcmod.info."""
+    data = {}
+    for line in content.split('\n'):
+        line = line.strip()
+        if '=' in line and not line.startswith('#'):
+            key, value = line.split('=', 1)
+            data[key.strip()] = value.strip().strip('"')
+    
+    # Handle author field from properties format
+    author = data.get("authorList", data.get("authors", ""))
+    
+    return {
+        "modid": data.get("modid", ""),
+        "name": data.get("name", ""),
+        "description": data.get("description", ""),
+        "version": data.get("version", ""),
+        "mcversion": data.get("mcversion", ""),
+        "author": author,
+        "modloader": "forge"
+    }
+
+
+def _extract_mc_version_from_fabric(data: Dict[str, Any]) -> str:
+    """Extract Minecraft version from Fabric mod.json."""
+    # Try different ways Fabric stores MC version
+    depends = data.get("depends", [])
+    if isinstance(depends, list):
+        for dep in depends:
+            if isinstance(dep, dict) and dep.get("id") == "minecraft":
+                return dep.get("version", "")
+    elif isinstance(dep, str):
+        if dep.startswith("minecraft"):
+            return dep.split(" ")[1] if " " in dep else ""
+    
+    # Try from environment
+    environment = data.get("environment", "")
+    if "*" in environment:
+        return "all"
+    
+    return "unknown"
+
+
+def _format_authors(authors: Any) -> str:
+    """Format authors list into a string."""
+    if isinstance(authors, list):
+        if len(authors) == 0:
+            return ""
+        elif len(authors) == 1:
+            return str(authors[0]) if authors[0] else ""
+        else:
+            return ", ".join(str(a) for a in authors[:3])
+    elif isinstance(authors, str):
+        return authors
+    else:
+        return str(authors) if authors else ""
