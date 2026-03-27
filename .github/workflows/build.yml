@@ -101,7 +101,7 @@ jobs:
       - name: Build with Nuitka (Windows)
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
         run: |
-          python -m nuitka --mode=app --windows-console-mode=disable --assume-yes-for-downloads --windows-icon-from-ico=icon.ico backend/main.py --include-data-dir=.=.
+          python -m nuitka --mode=app --windows-console-mode=disable --assume-yes-for-downloads backend/main.py --include-data-dir=.=.
 
       - name: Rename Nuitka Windows exe
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
@@ -123,7 +123,7 @@ jobs:
       - name: Build with Nuitka (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          python -m nuitka --standalone --assume-yes-for-downloads --macos-app-icon=icon.icns --macos-create-app-bundle backend/main.py --include-data-dir=.=.
+          python -m nuitka --standalone --assume-yes-for-downloads --macos-create-app-bundle backend/main.py --include-data-dir=.=.
 
       - name: Rename Nuitka macOS .app
         if: matrix.os == 'macos-latest'
