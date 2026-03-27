@@ -74,7 +74,7 @@ jobs:
       - name: Build with Nuitka (Windows)
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
         run: |
-          python -m nuitka --standalone --windows-console-mode=disable --assume-yes-for-downloads backend/main.py --include-data-dir=.=.
+          python -m nuitka --standalone --assume-yes-for-downloads backend/main.py --include-data-dir=.=.
 
       - name: Zip standalone folder (Windows)
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
