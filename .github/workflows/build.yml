@@ -128,12 +128,12 @@ jobs:
       - name: Build with Nuitka (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          python -m nuitka --standalone --assume-yes-for-downloads --macos-create-app-bundle backend/main.py --include-data-dir=.=. --macos-app-name="Nebulus Launch Pad"
+          python -m nuitka --standalone --assume-yes-for-downloads --macos-create-app-bundle backend/main.py --include-data-dir=.=. --macos-app-icon=icon.icns --macos-app-name="Nebulus Launch Pad"
 
       - name: Rename Nuitka macOS .app
         if: matrix.os == 'macos-latest'
         run: |
-          ls
+          mv main.app "Nebulus Launch Pad.app"
 
       - name: Zip .app bundle (macOS)
         if: matrix.os == 'macos-latest'
