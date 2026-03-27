@@ -159,6 +159,11 @@ export const useStore = create<AppStore>((set, get) => ({
   setTheme: (theme) => {
     set({ theme });
     applyTheme(theme);
+    api.saveSettings({ theme }).then(() => {
+      console.log('[theme] saved to settings.json:', theme);
+    }).catch((e) => {
+      console.error('[theme] failed to save settings:', e);
+    });
     localStorage.setItem('craftlaunch_theme', theme);
   },
 
@@ -179,10 +184,21 @@ export const useStore = create<AppStore>((set, get) => ({
       await waitForPywebview();
       console.log('pywebview is ready!');
 
-      // Restore theme
-      const savedTheme = (localStorage.getItem('craftlaunch_theme') as Theme) || 'dark';
+      // Restore theme — prefer settings.json (persisted by backend), fall back to localStorage
+      let savedTheme: Theme = 'dark';
+      try {
+        const settings = await api.getSettings();
+        if (settings?.theme) {
+          savedTheme = settings.theme as Theme;
+        } else {
+          savedTheme = (localStorage.getItem('craftlaunch_theme') as Theme) || 'dark';
+        }
+      } catch {
+        savedTheme = (localStorage.getItem('craftlaunch_theme') as Theme) || 'dark';
+      }
       applyTheme(savedTheme);
       set({ theme: savedTheme });
+      localStorage.setItem('craftlaunch_theme', savedTheme);
 
       // Listen for system theme changes
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {

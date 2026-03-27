@@ -125,6 +125,9 @@ export const api = {
   openFolder:     (path: string) => call<void>('openFolder', path),
   getInstanceDir: (id: string)   => call<string>('getInstanceDir', id),
 
+  getSettings:    () => call<Record<string, any>>('getSettings'),
+  saveSettings:   (settings: Record<string, any>) => call<void>('saveSettings', settings),
+
   importModpack:  (fileInfo: { name: string; content: string }) => call<any>('importModpack', fileInfo),
 };
 
@@ -381,6 +384,7 @@ const mockHandlers: Record<string, (...args: any[]) => any> = {
   openLogWindow: () => ({ opened: true }),
   getSystemInfo: () => ({ os: 'darwin', arch: 'arm64', platform: 'Darwin' }),
   openFolder: () => {}, getInstanceDir: () => '/mock/path/to/instance',
+  getSettings: () => ({}), saveSettings: () => {},
   importModpack: (fileInfo: { name: string; content: string }) => {
     // Mock implementation - in real app this would parse the mrpack file
     const mockInstance = {

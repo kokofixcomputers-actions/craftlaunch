@@ -1404,5 +1404,35 @@ class LauncherAPI:
         except Exception as e:
             return _err(str(e))
 
+    def getSettings(self) -> dict:
+        try:
+            p = paths.ROOT / "settings.json"
+            if p.exists():
+                with open(p) as f:
+                    return _ok(json.load(f))
+            return _ok({})
+        except Exception as e:
+            return _err(str(e))
+
+    def saveSettings(self, settings: dict) -> dict:
+        try:
+            p = paths.ROOT / "settings.json"
+            print(f"[settings] saving to {p}: {settings}")
+            existing = {}
+            if p.exists():
+                try:
+                    with open(p) as f:
+                        existing = json.load(f)
+                except Exception:
+                    pass
+            existing.update(settings)
+            with open(p, "w") as f:
+                json.dump(existing, f, indent=2)
+            print(f"[settings] saved ok: {existing}")
+            return _ok()
+        except Exception as e:
+            print(f"[settings] save error: {e}")
+            return _err(str(e))
+
     def getDataDir(self) -> dict:
         return _ok(str(paths.ROOT))

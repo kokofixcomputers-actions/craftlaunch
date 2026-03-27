@@ -299,7 +299,7 @@ export default function SettingsPage() {
             {[
               ['Platform', systemInfo.platform],
               ['Architecture', `${systemInfo.arch}${systemInfo.arch === 'arm64' ? ' (Apple Silicon)' : ''}`],
-              ['Launcher', 'CraftLaunch 1.0.0'],
+              ['Launcher', 'NebulusLaunch 1.0.0'],
             ].map(([label, value]) => (
               <div key={label} className="flex gap-3" style={{ fontSize: '0.8rem' }}>
                 <span style={{ color: 'var(--text-3)', minWidth: 90 }}>{label}</span>

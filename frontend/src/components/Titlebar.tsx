@@ -66,7 +66,7 @@ export default function Titlebar() {
         letterSpacing: '0.04em', userSelect: 'none', pointerEvents: 'none',
         transition: 'color 0.3s ease',
       }}>
-        CraftLaunch
+        NebulusLaunch
       </div>
 
       {/* Quick navigation buttons — must be no-drag so clicks register */}
