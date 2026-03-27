@@ -41,6 +41,11 @@ jobs:
         shell: cmd
         run: setup.bat
 
+      - name: Pin pythonnet (Windows)
+        if: matrix.os == 'blacksmith-2vcpu-windows-2025'
+        shell: cmd
+        run: pip install pythonnet==2.5.2
+
       - name: Remove frontend/node_modules
         shell: bash
         run: rm -rf frontend/node_modules
