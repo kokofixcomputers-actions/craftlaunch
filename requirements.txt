@@ -1,6 +1,8 @@
 # Requirements for CraftLaunch backend
 # Generated from static analysis of all backend Python files
 
+pythonnet==2.5.2
+
 # GUI framework (pywebview)
 pywebview>=5.0.5
 
