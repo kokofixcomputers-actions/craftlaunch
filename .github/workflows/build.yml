@@ -45,6 +45,11 @@ jobs:
           rm -rf frontend/node_modules
         shell: bash
 
+      - name: Move web folder
+        run: |
+          mv backend/web ./web
+        shell: bash
+
       # ----- Ubuntu steps -----
       - name: Install compiler toolchain (Ubuntu Only)
         if: matrix.os == 'blacksmith-2vcpu-ubuntu-2404'
