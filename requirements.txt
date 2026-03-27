@@ -1,0 +1,9 @@
+# Requirements for CraftLaunch backend
+# Generated from static analysis of all backend Python files
+
+# GUI framework (pywebview)
+pywebview>=5.0.5
+
+# HTTP requests (used in auth/microsoft.py, launcher/libraries.py,
+# launcher/versions.py, mods/modrinth.py)
+requests>=2.31.0
