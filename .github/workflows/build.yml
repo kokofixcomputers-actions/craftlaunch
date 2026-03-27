@@ -72,6 +72,17 @@ jobs:
       - name: Install Nuitka
         run: python -m pip install nuitka
 
+      - name: Run setup.sh (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          chmod +x ./setup.sh
+          ./setup.sh
+
+      - name: Run setup.bat (Windows)
+        if: matrix.os == 'blacksmith-2vcpu-windows-2025'
+        shell: cmd
+        run: setup.bat
+
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
 
@@ -79,7 +90,7 @@ jobs:
       - name: Build with Nuitka (Windows)
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
         run: |
-          python -m nuitka --mode=app --windows-console-mode=disable --assume-yes-for-downloads --windows-icon-from-ico=icon.ico "Nebulus Launch Pad.py" --include-data-dir=.=.
+          python -m nuitka --mode=app --windows-console-mode=disable --assume-yes-for-downloads --windows-icon-from-ico=icon.ico backend/main.py --include-data-dir=.=.
 
       - name: Rename Nuitka Windows exe
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
@@ -101,12 +112,12 @@ jobs:
       - name: Build with Nuitka (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          python -m nuitka --standalone --assume-yes-for-downloads --macos-app-icon=icon.icns --macos-create-app-bundle "Nebulus Launch Pad.py" --include-data-dir=.=.
+          python -m nuitka --standalone --assume-yes-for-downloads --macos-app-icon=icon.icns --macos-create-app-bundle backend/main.py --include-data-dir=.=.
 
       - name: Rename Nuitka macOS .app
         if: matrix.os == 'macos-latest'
         run: |
-          mv Nebulus\ Launch\ Pad.app Nebulus_Launch_Pad.app
+          mv main.app Nebulus_Launch_Pad.app
 
       - name: Zip .app bundle (macOS)
         if: matrix.os == 'macos-latest'
