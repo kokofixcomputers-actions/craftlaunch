@@ -1,0 +1,121 @@
+name: Build Nebulus Launch Pad
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [blacksmith-2vcpu-windows-2025, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      NUITKA_ALLOW_DOWNLOADING: 1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      # ----- Ubuntu steps -----
+      - name: Install compiler toolchain (Ubuntu Only)
+        if: matrix.os == 'blacksmith-2vcpu-ubuntu-2404'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Set up ccache (Ubuntu Only)
+        if: matrix.os == 'blacksmith-2vcpu-ubuntu-2404'
+        run: |
+          CCACHE_VERSION=4.12.1
+          wget -q https://github.com/ccache/ccache/releases/download/v${CCACHE_VERSION}/ccache-${CCACHE_VERSION}-linux-x86_64.tar.xz
+          tar -xf ccache-${CCACHE_VERSION}-linux-x86_64.tar.xz
+          sudo mv ccache-${CCACHE_VERSION}-linux-x86_64/ccache /usr/local/bin/
+          ccache --version
+
+      - name: Add ccache to PATH (Ubuntu Only)
+        if: matrix.os == 'blacksmith-2vcpu-ubuntu-2404'
+        run: echo "/usr/local/bin" >> $GITHUB_PATH
+
+      # ----- Caching steps -----
+      - name: Cache ccache (Linux & macOS)
+        if: matrix.os != 'blacksmith-2vcpu-windows-2025'
+        uses: actions/cache@v3
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.os }}
+          restore-keys: |
+            ccache-
+
+      - name: Cache Nuitka (All Platforms)
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/Nuitka
+          key: nuitka-${{ matrix.os }}
+          restore-keys: |
+            nuitka-
+
+      - name: Cache pip (All Platforms)
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.os }}
+          restore-keys: |
+            pip-
+
+      - name: Install Nuitka
+        run: python -m pip install nuitka
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      # ----- Windows Build & Rename -----
+      - name: Build with Nuitka (Windows)
+        if: matrix.os == 'blacksmith-2vcpu-windows-2025'
+        run: |
+          python -m nuitka --mode=app --windows-console-mode=disable --assume-yes-for-downloads --windows-icon-from-ico=icon.ico "Nebulus Launch Pad.py" --include-data-dir=.=.
+
+      - name: Rename Nuitka Windows exe
+        if: matrix.os == 'blacksmith-2vcpu-windows-2025'
+        shell: pwsh
+        run: |
+          $originalExe = Get-ChildItem -Filter "*.exe" | Select-Object -First 1
+          if ($originalExe) {
+            Move-Item $originalExe.Name "Nebulus Launch Pad.exe"
+          }
+
+      - name: Upload artifact Portable EXE (Windows)
+        if: matrix.os == 'blacksmith-2vcpu-windows-2025'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nebulus-Launch-Pad-Windows-Portable
+          path: "Nebulus Launch Pad.exe"
+
+      # ----- macOS Build & Rename -----
+      - name: Build with Nuitka (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          python -m nuitka --standalone --assume-yes-for-downloads --macos-app-icon=icon.icns --macos-create-app-bundle "Nebulus Launch Pad.py" --include-data-dir=.=.
+
+      - name: Rename Nuitka macOS .app
+        if: matrix.os == 'macos-latest'
+        run: |
+          mv Nebulus\ Launch\ Pad.app Nebulus_Launch_Pad.app
+
+      - name: Zip .app bundle (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent Nebulus_Launch_Pad.app Nebulus-Launch-Pad-macOS.zip
+
+      - name: Upload artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nebulus-Launch-Pad-macOS
+          path: Nebulus-Launch-Pad-macOS.zip
