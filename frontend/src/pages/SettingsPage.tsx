@@ -161,7 +161,7 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
-        <button onClick={() => setShowOnboarding(true)} className="btn btn-secondary btn-sm">
+        <button onClick={() => setShowOnboarding(true)} className="btn btn-primary btn-sm">
           <ExternalLink size={13} /> Add Account
         </button>
       </section>
@@ -170,7 +170,7 @@ export default function SettingsPage() {
       <section className="glass-card p-5">
         <div className="flex items-center justify-between mb-3">
           <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-2)' }}>Java Installations</div>
-          <button onClick={scanJava} disabled={scanningJava} className="btn btn-ghost btn-sm">
+          <button onClick={scanJava} disabled={scanningJava} className="btn btn-primary btn-sm">
             <RefreshCw size={12} className={scanningJava ? 'animate-spin' : ''} /> Scan
           </button>
         </div>

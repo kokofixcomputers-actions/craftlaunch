@@ -4,9 +4,9 @@ import { useStore } from '../store';
 import { api } from '../api/bridge';
 
 export default function ModsPage() {
-  const { instances, updateInstance } = useStore();
+  const { instances, selectedInstanceId } = useStore();
   const [query, setQuery] = useState('');
-  const [selectedInstance, setSelectedInstance] = useState(instances[0]?.id || '');
+  const [selectedInstance, setSelectedInstance] = useState(selectedInstanceId || instances[0]?.id || '');
   const [results, setResults] = useState<any[]>([]);
   const [totalHits, setTotalHits] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -17,8 +17,17 @@ export default function ModsPage() {
   const [selectedVersions, setSelectedVersions] = useState<Record<string, string>>({});
   const [installing, setInstalling] = useState<string | null>(null);
   const [installed, setInstalled] = useState<string | null>(null);
+  const [installedFilenames, setInstalledFilenames] = useState<Set<string>>(new Set());
 
   const inst = instances.find(i => i.id === selectedInstance);
+
+  // Reload installed filenames from disk whenever the selected instance changes
+  useEffect(() => {
+    if (!inst) return;
+    api.getMods(inst.id).then(mods => {
+      setInstalledFilenames(new Set(mods.map((m: any) => m.filename)));
+    }).catch(() => {});
+  }, [inst?.id]);
 
   const search = useCallback(async (newOffset = 0) => {
     if (!inst) return;
@@ -67,16 +76,22 @@ export default function ModsPage() {
 
     setInstalling(mod.project_id);
     try {
-      const installedMod = await api.installMod(inst.id, version.id, file.filename, file.url);
-      updateInstance(inst.id, { mods: [...inst.mods, installedMod] });
+      await api.installMod(inst.id, version.id, file.filename, file.url);
+      setInstalledFilenames(prev => new Set([...prev, file.filename]));
       setInstalled(mod.project_id);
       setTimeout(() => setInstalled(null), 2500);
     } catch (e: any) { console.error(e); }
     setInstalling(null);
   };
 
-  const isModInstalled = (projectId: string) =>
-    inst?.mods.some(m => m.slug === projectId || m.versionId === selectedVersions[projectId]);
+  const isModInstalled = (projectId: string) => {
+    const versions = modVersions[projectId] || [];
+    const selectedVid = selectedVersions[projectId];
+    const version = versions.find(v => v.id === selectedVid) || versions[0];
+    if (!version) return false;
+    const file = version.files.find((f: any) => f.primary) || version.files[0];
+    return file ? installedFilenames.has(file.filename) : false;
+  };
 
   const formatDownloads = (n: number) =>
     n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(0)}K` : String(n);

@@ -87,8 +87,8 @@ export const api = {
                    call<any[]>('getModVersions', projectId, mc, loader),
   installMod:    (instanceId: string, versionId: string, filename: string, url: string) =>
                    call<any>('installMod', instanceId, versionId, filename, url),
-  removeMod:     (instanceId: string, modId: string)               => call<void>('removeMod', instanceId, modId),
-  toggleMod:     (instanceId: string, modId: string, enabled: boolean) => call<void>('toggleMod', instanceId, modId, enabled),
+  removeMod:     (instanceId: string, filename: string)               => call<void>('removeMod', instanceId, filename),
+  toggleMod:     (instanceId: string, filename: string, enabled: boolean) => call<void>('toggleMod', instanceId, filename, enabled),
 
   getModMetadata: (instanceId: string, modId: string) => call<any>('getModMetadata', instanceId, modId),
   getModIcon:      (instanceId: string, modId: string) => call<any>('getModIcon', instanceId, modId),

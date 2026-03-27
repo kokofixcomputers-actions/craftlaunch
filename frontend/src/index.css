@@ -31,6 +31,7 @@
   --input-bg:       var(--surface);
   --select-arrow:   %239aa0b8;
   --code-color:     #a78bfa;
+  --dropdown-bg:    #1a1b22;
 }
 
 /* ── Light theme ───────────────────────────────────────────────── */
@@ -48,6 +49,7 @@
   --green-text:     #16a34a;
   --shadow-glass:   0 10px 30px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.6);
   --shadow-soft:    0 8px 20px rgba(0,0,0,0.06);
+  --dropdown-bg:    #ffffff;
   --titlebar-bg:    rgba(250,251,252,0.98);
   --titlebar-border:rgba(0,0,0,0.09);
   --sidebar-bg:     rgba(245,247,250,0.85);
@@ -122,8 +124,8 @@ body {
 .btn:active { transform: scale(0.97); }
 .btn svg    { width: 14px; height: 14px; stroke-width: 2; flex-shrink: 0; stroke: currentColor; fill: none; }
 
-.btn-primary   { background: #111; color: #fff; border-color: #111; }
-.theme-light .btn-primary { background: #1a1b25; color: #fff; border-color: #1a1b25; }
+.btn-primary   { background: #ffffff; color: #000000; border-color: #ffffff; }
+.theme-light .btn-primary { background: #111218; color: #ffffff; border-color: #111218; }
 .btn-primary:hover { opacity: 0.88; }
 .btn-secondary { background: var(--surface-strong); color: var(--text); border-color: var(--border-strong); }
 .btn-ghost     { background: transparent; color: var(--text); border-color: var(--border-strong); }

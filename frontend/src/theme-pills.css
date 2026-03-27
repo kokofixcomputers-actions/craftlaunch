@@ -70,8 +70,7 @@ body {
 }
 .version-menu-dropdown .menu-inner {
   padding: 10px;
-  /* use design tokens so background follows current theme (light/dark) */
-  background: var(--surface-strong);
+  background: var(--dropdown-bg, #1e1e24);
   color: var(--text);
 }
 

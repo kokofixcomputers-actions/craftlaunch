@@ -127,16 +127,14 @@ export default function InstanceDetailPage() {
     setSaving(false);
   };
 
-  const removeMod = async (modId: string) => {
-    await api.removeMod(inst.id, modId).catch(() => {});
-    // Remove from local mods state
-    setMods(prev => prev.filter(m => m.id !== modId));
+  const removeMod = async (filename: string) => {
+    await api.removeMod(inst.id, filename).catch(() => {});
+    setMods(prev => prev.filter(m => m.filename !== filename));
   };
 
-  const toggleMod = async (modId: string, enabled: boolean) => {
-    await api.toggleMod(inst.id, modId, enabled).catch(() => {});
-    // Update local mods state
-    setMods(prev => prev.map(m => m.id === modId ? { ...m, enabled } : m));
+  const toggleMod = async (filename: string, enabled: boolean) => {
+    await api.toggleMod(inst.id, filename, enabled).catch(() => {});
+    setMods(prev => prev.map(m => m.filename === filename ? { ...m, enabled } : m));
   };
 
   const loadModIcon = async (modId: string) => {
@@ -413,7 +411,7 @@ export default function InstanceDetailPage() {
             <button onClick={openFolder} className="btn btn-ghost btn-sm"><FolderOpen size={13} /></button>
             <button onClick={() => setShowLog(true)} className="btn btn-ghost btn-sm"><Terminal size={13} /> Logs</button>
             {inst.modLoader !== 'vanilla' && (
-              <button onClick={exportModpack} disabled={exporting} className="btn btn-secondary btn-sm">
+              <button onClick={exportModpack} disabled={exporting} className="btn btn-ghost btn-sm">
                 {exporting ? <Loader size={12} className="animate-spin" /> : <Package size={12} />}
                 {exporting ? 'Exporting…' : 'Export'}
               </button>
@@ -512,13 +510,13 @@ export default function InstanceDetailPage() {
                   {uploading ? <Loader size={12} className="animate-spin" /> : <Upload size={12} />}
                   {uploading ? 'Uploading…' : 'Upload Mod'}
                 </button>
-                <button onClick={() => navigate('mods')} className="btn btn-secondary btn-sm">Browse Mods</button>
+                <button onClick={() => navigate('mods', inst.id)} className="btn btn-primary btn-sm">Browse Mods</button>
               </div>
             </div>
             {mods.length === 0 ? (
               <div className="glass-card p-8 text-center">
                 <div style={{ color: 'var(--text-3)', fontSize: '0.88rem', marginBottom: 12 }}>No mods installed</div>
-                <button onClick={() => navigate('mods')} className="btn btn-primary btn-sm">Browse Modrinth</button>
+                <button onClick={() => navigate('mods', inst.id)} className="btn btn-primary btn-sm">Browse Modrinth</button>
               </div>
             ) : mods.map(mod => {
               console.log(`Rendering mod: ${mod.name} (${mod.id})`);
@@ -580,10 +578,10 @@ export default function InstanceDetailPage() {
                       </>
                     )}
                   </div>
-                  <button onClick={() => toggleMod(mod.id, !mod.enabled)} className="btn btn-ghost btn-sm" style={{ padding: '0.3rem', color: mod.enabled ? '#4ade80' : 'var(--text-3)' }}>
+                  <button onClick={() => toggleMod(mod.filename, !mod.enabled)} className="btn btn-ghost btn-sm" style={{ padding: '0.3rem', color: mod.enabled ? '#4ade80' : 'var(--text-3)' }}>
                     {mod.enabled ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
                   </button>
-                  <button onClick={() => removeMod(mod.id)} className="btn btn-ghost btn-sm" style={{ padding: '0.3rem', color: '#f87171' }}>
+                  <button onClick={() => removeMod(mod.filename)} className="btn btn-ghost btn-sm" style={{ padding: '0.3rem', color: '#f87171' }}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -598,7 +596,7 @@ export default function InstanceDetailPage() {
             <div className="flex items-center justify-between mb-3">
               <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>{resourcePacks.length} resource packs</span>
               <div className="flex items-center gap-2">
-                <button onClick={() => navigate('resourcepacks')} className="btn btn-secondary btn-sm">Browse Modrinth</button>
+                <button onClick={() => navigate('resourcepacks')} className="btn btn-primary btn-sm">Browse Modrinth</button>
                 <button onClick={() => {/* TODO: Implement upload */}} className="btn btn-primary btn-sm">Upload Pack</button>
               </div>
             </div>
@@ -607,7 +605,7 @@ export default function InstanceDetailPage() {
                 <div style={{ color: 'var(--text-3)', fontSize: '0.88rem', marginBottom: 12 }}>No resource packs installed</div>
                 <div className="flex items-center gap-2 justify-center">
                   <button onClick={() => navigate('resourcepacks')} className="btn btn-primary btn-sm">Browse Modrinth</button>
-                  <button onClick={() => {/* TODO: Implement upload */}} className="btn btn-secondary btn-sm">Upload Pack</button>
+                  <button onClick={() => {/* TODO: Implement upload */}} className="btn btn-primary btn-sm">Upload Pack</button>
                 </div>
               </div>
             ) : resourcePacks.map(pack => (
@@ -639,7 +637,7 @@ export default function InstanceDetailPage() {
             <div className="flex items-center justify-between mb-3">
               <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>{shaderPacks.length} shader packs</span>
               <div className="flex items-center gap-2">
-                <button onClick={() => navigate('shaderpacks')} className="btn btn-secondary btn-sm">Browse Modrinth</button>
+                <button onClick={() => navigate('shaderpacks')} className="btn btn-primary btn-sm">Browse Modrinth</button>
                 <button onClick={() => {/* TODO: Implement upload */}} className="btn btn-primary btn-sm">Upload Pack</button>
               </div>
             </div>

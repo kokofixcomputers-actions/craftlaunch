@@ -155,25 +155,47 @@ def extract_mod_metadata(jar_path: Path) -> Dict[str, Any]:
         if icon_path:
             # Try to extract the specified icon file
             print(f"  Looking for icon: {icon_path}")
+            # Build candidate paths: exact, assets/ prefix, and without leading ./
+            icon_path_clean = icon_path.lstrip("./")
+            candidates = {
+                icon_path,
+                icon_path_clean,
+                f"assets/{icon_path_clean}",
+            }
             try:
                 with zipfile.ZipFile(jar_path, 'r') as zip_file:
                     for file_info in zip_file.infolist():
-                        if file_info.filename == icon_path or file_info.filename.endswith(icon_path):
+                        fn = file_info.filename
+                        if fn in candidates or fn.endswith(icon_path_clean):
                             try:
-                                icon_data = zip_file.read(file_info.filename)
+                                icon_data = zip_file.read(fn)
                                 extracted_icon = {
-                                    "filename": Path(file_info.filename).name,
+                                    "filename": Path(fn).name,
                                     "data": icon_data,
                                     "size": len(icon_data)
                                 }
-                                print(f"  Extracted icon: {file_info.filename}")
+                                print(f"  Extracted icon: {fn}")
                                 break
                             except Exception as e:
-                                print(f"  Failed to extract icon {file_info.filename}: {e}")
+                                print(f"  Failed to extract icon {fn}: {e}")
             except Exception as e:
                 print(f"  Error extracting icon: {e}")
         
-        # If no icon specified, try to find one automatically
+        # If no icon specified, try assets/<modid>/textures/modicon.png
+        if not extracted_icon and metadata.get("modid"):
+            modid = metadata["modid"]
+            modicon_path = f"assets/{modid}/textures/modicon.png"
+            try:
+                with zipfile.ZipFile(jar_path, 'r') as zip_file:
+                    names = zip_file.namelist()
+                    if modicon_path in names:
+                        icon_data = zip_file.read(modicon_path)
+                        extracted_icon = {"filename": "modicon.png", "data": icon_data, "size": len(icon_data)}
+                        print(f"  Extracted modicon: {modicon_path}")
+            except Exception as e:
+                print(f"  Failed to probe modicon.png: {e}")
+
+        # If still no icon, try to find one automatically
         if not extracted_icon and icon_files:
             print(f"  Using automatically found icon")
             icon_file = icon_files[0]  # Use the first icon found
@@ -245,7 +267,8 @@ def _parse_forge_metadata(info_path: Path) -> Dict[str, Any]:
                 "version": data.get("version", ""),
                 "mcversion": data.get("mcversion", ""),
                 "author": _format_authors(author_list),
-                "modloader": "forge"
+                "modloader": "forge",
+                "icon": data.get("logoFile", ""),
             }
         except json.JSONDecodeError:
             pass

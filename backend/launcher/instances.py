@@ -98,7 +98,6 @@ def create(
         "javaPath":         java_path or "",
         "jvmArgs":          jvm_args,
         "ram":              ram,
-        "mods":             [],
         "createdAt":        datetime.now(timezone.utc).isoformat(),
         "lastPlayed":       None,
         "icon":             "",
@@ -147,33 +146,6 @@ def delete(instance_id: str):
     idir = paths.instance_dir(instance_id)
     if idir.exists():
         shutil.rmtree(idir)
-
-
-def add_mod(instance_id: str, mod: dict) -> dict:
-    d = _load(instance_id)
-    # Remove any existing entry with same versionId or filename
-    d["mods"] = [m for m in d.get("mods", [])
-                 if m.get("versionId") != mod.get("versionId")
-                 and m.get("filename") != mod.get("filename")]
-    d["mods"].append(mod)
-    _save(d)
-    return d
-
-
-def remove_mod(instance_id: str, mod_id: str) -> dict:
-    d = _load(instance_id)
-    d["mods"] = [m for m in d.get("mods", []) if m.get("id") != mod_id]
-    _save(d)
-    return d
-
-
-def toggle_mod(instance_id: str, mod_id: str, enabled: bool) -> dict:
-    d = _load(instance_id)
-    for m in d.get("mods", []):
-        if m.get("id") == mod_id:
-            m["enabled"] = enabled
-    _save(d)
-    return d
 
 
 def update_last_played(instance_id: str):

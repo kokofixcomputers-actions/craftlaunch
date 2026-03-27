@@ -369,9 +369,6 @@ class LauncherAPI:
                     instance_mods_dir.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(mod_file, instance_mods_dir / mod_file.name)
                     
-                    # Add mod to instance metadata
-                    inst_mgr.add_mod(instance["id"], mod_entry)
-                    
                 except Exception as e:
                     print(f"Warning: Failed to install mod {mod_file.name}: {e}")
             
@@ -676,51 +673,33 @@ class LauncherAPI:
             return _err(str(e))
 
     def getMods(self, instanceId: str) -> dict:
-        """
-        Get all mods by scanning the mods folder directly.
-        This eliminates the need for separate metadata tracking.
-        """
+        """Scan mods directory on disk — no instance.json involved."""
         try:
-            print(f"API: Getting all mods for instance {instanceId}")
-            
-            # Get the mods directory
             mods_dir = paths.instance_mods_dir(instanceId)
-            print(f"  Mods directory: {mods_dir}")
-            print(f"  Directory exists: {mods_dir.exists()}")
-            
             if not mods_dir.exists():
-                print(f"  Mods directory not found: {mods_dir}")
                 return _ok([])
-            
-            # Scan for all JAR files
             mods = []
-            jar_files = list(mods_dir.glob("*.jar"))
-            print(f"  Found {len(jar_files)} files with .jar extension")
-            
-            for jar_path in jar_files:
-                if jar_path.is_file() and jar_path.suffix.lower() == '.jar':
-                    print(f"  Processing JAR: {jar_path.name}")
-                    # Create mod entry from file
-                    mod_id = jar_path.stem.replace(' ', '_').lower()
-                    mod_entry = {
-                        "id": mod_id,
-                        "filename": jar_path.name,
-                        "name": jar_path.stem,
-                        "version": "unknown",
-                        "enabled": True,  # Default to enabled
-                        "iconUrl": None
-                    }
-                    mods.append(mod_entry)
-                    print(f"    Added mod: {mod_entry['name']} (ID: {mod_id})")
-            
-            print(f"  Returning {len(mods)} mods total")
-            
+            for p in sorted(mods_dir.iterdir()):
+                if not p.is_file():
+                    continue
+                if p.suffix.lower() == ".jar":
+                    filename, enabled = p.name, True
+                elif p.name.endswith(".jar.disabled"):
+                    filename, enabled = p.name[:-len(".disabled")], False
+                else:
+                    continue
+                mods.append({
+                    "id":        filename,   # filename is the stable identity
+                    "name":      filename.replace(".jar", ""),
+                    "slug":      "",
+                    "version":   "unknown",
+                    "versionId": "",
+                    "filename":  filename,
+                    "enabled":   enabled,
+                    "iconUrl":   "",
+                })
             return _ok(mods)
-            
         except Exception as e:
-            print(f"  Error getting mods: {e}")
-            import traceback
-            traceback.print_exc()
             return _err(str(e))
 
     def deleteInstance(self, instanceId: str) -> dict:
@@ -999,30 +978,24 @@ class LauncherAPI:
     def installMod(self, instanceId: str, versionId: str, filename: str, url: str) -> dict:
         try:
             mod = install_mod(instanceId, versionId, filename, url)
-            inst_mgr.add_mod(instanceId, mod)
+            # Return a filesystem-consistent entry (id = filename)
+            mod["id"] = mod["filename"]
             return _ok(mod)
         except Exception as e:
             return _err(str(e))
 
-    def removeMod(self, instanceId: str, modId: str) -> dict:
+    def removeMod(self, instanceId: str, filename: str) -> dict:
+        """Delete mod jar from disk by filename."""
         try:
-            # Get filename from instance metadata
-            instance = inst_mgr.get(instanceId)
-            mod      = next((m for m in instance.get("mods", []) if m["id"] == modId), None)
-            if mod:
-                remove_mod(instanceId, mod["filename"])
-                inst_mgr.remove_mod(instanceId, modId)
+            remove_mod(instanceId, filename)
             return _ok()
         except Exception as e:
             return _err(str(e))
 
-    def toggleMod(self, instanceId: str, modId: str, enabled: bool) -> dict:
+    def toggleMod(self, instanceId: str, filename: str, enabled: bool) -> dict:
+        """Enable/disable mod by renaming file on disk."""
         try:
-            instance = inst_mgr.get(instanceId)
-            mod      = next((m for m in instance.get("mods", []) if m.get("id") == modId), None)
-            if mod:
-                toggle_mod(instanceId, mod["filename"], enabled)
-                inst_mgr.toggle_mod(instanceId, modId, enabled)
+            toggle_mod(instanceId, filename, enabled)
             return _ok()
         except Exception as e:
             return _err(str(e))
@@ -1227,12 +1200,9 @@ class LauncherAPI:
             # Find the mod file by ID (scan all JAR files)
             mod_file = None
             for jar_path in mods_dir.glob("*.jar"):
-                if jar_path.is_file() and jar_path.suffix.lower() == '.jar':
-                    # Create a simple ID from filename for comparison
-                    file_id = jar_path.stem.replace(' ', '_').lower()
-                    if file_id == modId or jar_path.name == modId:
-                        mod_file = jar_path
-                        break
+                if jar_path.is_file() and jar_path.name == modId:
+                    mod_file = jar_path
+                    break
             
             if not mod_file:
                 print(f"  Mod file not found for ID: {modId}")
@@ -1289,9 +1259,7 @@ class LauncherAPI:
             # Find the mod file
             mod_file = None
             for file_path in mods_dir.glob("*.jar"):
-                # Use filename (without extension) as mod ID for matching
-                file_mod_id = file_path.stem
-                if file_mod_id == modId or file_mod_id.startswith(modId):
+                if file_path.is_file() and file_path.name == modId:
                     mod_file = file_path
                     break
             
