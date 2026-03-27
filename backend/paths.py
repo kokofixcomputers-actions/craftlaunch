@@ -32,13 +32,27 @@ from pathlib import Path
 
 def _default_data_dir() -> Path:
     system = platform.system()
+
+    # Resolve home directory explicitly — Nuitka/frozen envs can have a broken
+    # HOME env var or Path.home() may fall back to a relative path.
+    home_str = os.environ.get("HOME") or os.environ.get("USERPROFILE") or ""
+    if home_str and not os.path.isabs(home_str):
+        home_str = ""  # reject relative paths like "~"
+    home = Path(home_str) if home_str else Path(os.path.expanduser("~"))
+
+    # Final safety: if home is still relative, fall back to /tmp
+    if not home.is_absolute():
+        home = Path("/tmp")
+
     if system == "Darwin":
-        return Path.home() / "Library" / "Application Support" / "CraftLaunch"
+        return home / "Library" / "Application Support" / "CraftLaunch"
     elif system == "Windows":
-        appdata = os.environ.get("APPDATA", str(Path.home()))
-        return Path(appdata) / "CraftLaunch"
+        appdata = os.environ.get("APPDATA", "")
+        if appdata and os.path.isabs(appdata):
+            return Path(appdata) / "CraftLaunch"
+        return home / "AppData" / "Roaming" / "CraftLaunch"
     else:
-        return Path.home() / ".craftlaunch"
+        return home / ".craftlaunch"
 
 
 ROOT = _default_data_dir()
