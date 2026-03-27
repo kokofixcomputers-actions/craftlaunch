@@ -67,13 +67,14 @@ def extract_mod_metadata(jar_path: Path) -> Dict[str, Any]:
             # Only extract metadata files to speed up processing
             metadata_files = ['mcmod.info', 'fabric.mod.json']
             extracted_files = []
+            icon_files = []
             
             for file_info in zip_file.infolist():
                 # Skip directories and non-metadata files
                 if file_info.is_dir():
                     continue
                 
-                # Extract only files we need for metadata
+                # Extract metadata files we need
                 if any(meta_file in file_info.filename for meta_file in metadata_files):
                     try:
                         zip_file.extract(file_info, temp_dir)
@@ -81,8 +82,14 @@ def extract_mod_metadata(jar_path: Path) -> Dict[str, Any]:
                         print(f"  Extracted: {file_info.filename}")
                     except Exception as e:
                         print(f"  Failed to extract {file_info.filename}: {e}")
-                        # Skip files that can't be extracted
                         continue
+                
+                # Look for icon files (png, jpg, jpeg, gif)
+                elif any(file_info.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif']):
+                    # Only extract if it looks like an icon (not in subdirectories)
+                    if '/' not in file_info.filename or file_info.filename.count('/') == 1:
+                        icon_files.append(file_info)
+                        print(f"  Found icon: {file_info.filename}")
             
             if not extracted_files:
                 print(f"  No metadata files found in JAR")
@@ -140,6 +147,57 @@ def extract_mod_metadata(jar_path: Path) -> Dict[str, Any]:
             }
         else:
             print(f"  Successfully extracted metadata: {metadata.get('name', 'Unknown')}")
+        
+        # Extract icon if specified in metadata or found in JAR
+        icon_path = metadata.get("icon", "")
+        extracted_icon = None
+        
+        if icon_path:
+            # Try to extract the specified icon file
+            print(f"  Looking for icon: {icon_path}")
+            try:
+                with zipfile.ZipFile(jar_path, 'r') as zip_file:
+                    for file_info in zip_file.infolist():
+                        if file_info.filename == icon_path or file_info.filename.endswith(icon_path):
+                            try:
+                                icon_data = zip_file.read(file_info.filename)
+                                extracted_icon = {
+                                    "filename": Path(file_info.filename).name,
+                                    "data": icon_data,
+                                    "size": len(icon_data)
+                                }
+                                print(f"  Extracted icon: {file_info.filename}")
+                                break
+                            except Exception as e:
+                                print(f"  Failed to extract icon {file_info.filename}: {e}")
+            except Exception as e:
+                print(f"  Error extracting icon: {e}")
+        
+        # If no icon specified, try to find one automatically
+        if not extracted_icon and icon_files:
+            print(f"  Using automatically found icon")
+            icon_file = icon_files[0]  # Use the first icon found
+            try:
+                with zipfile.ZipFile(jar_path, 'r') as zip_file:
+                    icon_data = zip_file.read(icon_file.filename)
+                    extracted_icon = {
+                        "filename": Path(icon_file.filename).name,
+                        "data": icon_data,
+                        "size": len(icon_data)
+                    }
+                    print(f"  Extracted auto-found icon: {icon_file.filename}")
+            except Exception as e:
+                print(f"  Failed to extract auto-found icon: {e}")
+        
+        # Add icon data to metadata (but exclude binary data from JSON response)
+        if extracted_icon:
+            metadata["has_icon"] = True
+            metadata["icon_filename"] = extracted_icon["filename"]
+            metadata["icon_size"] = extracted_icon["size"]
+            # Store binary data separately for the icon endpoint
+            metadata["_binary_icon"] = extracted_icon["data"]
+        else:
+            metadata["has_icon"] = False
         
         # Cache the result
         try:
@@ -201,22 +259,51 @@ def _parse_forge_metadata(info_path: Path) -> Dict[str, Any]:
 
 
 def _parse_fabric_metadata(info_path: Path) -> Dict[str, Any]:
-    """Parse Fabric mod.json file."""
+    """Parse Fabric fabric.mod.json file."""
     try:
         with open(info_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        data = data[0]
+        # Fabric mod is a single object, not an array
+        # Remove the incorrect data[0] access
         
-        # Fabric mod schema
+        # Extract authors properly - can be array of strings or objects
+        authors = data.get("authors", [])
+        author_list = []
+        if isinstance(authors, list):
+            for author in authors:
+                if isinstance(author, str):
+                    author_list.append(author)
+                elif isinstance(author, dict):
+                    # Handle author objects with name field
+                    author_list.append(author.get("name", "Unknown"))
+        
+        # Extract Minecraft version from depends
+        mc_version = "unknown"
+        depends = data.get("depends", {})
+        if isinstance(depends, dict):
+            minecraft_dep = depends.get("minecraft")
+            if isinstance(minecraft_dep, dict):
+                mc_version = minecraft_dep.get("version", "unknown")
+            elif isinstance(minecraft_dep, str):
+                mc_version = minecraft_dep
+        
+        # Extract icon path if available
+        icon_path = data.get("icon", "")
+        
         return {
             "modid": data.get("id", ""),
             "name": data.get("name", ""),
             "description": data.get("description", ""),
             "version": data.get("version", ""),
-            "mcversion": _extract_mc_version_from_fabric(data),
-            "author": _format_authors(data.get("authors", [])),
-            "modloader": "fabric"
+            "mcversion": mc_version,
+            "author": _format_authors(author_list),
+            "modloader": "fabric",
+            "icon": icon_path,
+            "authors": author_list,  # Keep original authors list for display
+            "license": data.get("license", ""),
+            "contact": data.get("contact", {}),
+            "environment": data.get("environment", "*")
         }
         
     except Exception as e:

@@ -147,7 +147,7 @@ def get_forge_versions(mc_version: str) -> list[dict]:
 def get_forge_installer_url(mc_version: str, forge_version: str) -> str:
     full = f"{mc_version}-{forge_version}"
     return (
-        f"https://files.minecraftforge.net/net/minecraftforge/forge/"
+        f"https://maven.minecraftforge.net/net/minecraftforge/forge/"
         f"{full}/forge-{full}-installer.jar"
     )
 

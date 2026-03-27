@@ -1,0 +1,92 @@
+/* Pills + SaaS-ish styling overlay
+   This file augments existing index.css and provides pill-style buttons,
+   glass surfaces, and a subtle light/dark token set inspired by the example.
+*/
+:root {
+  --pills-primary: #111111;
+  --pills-primary-contrast: #ffffff;
+  --pills-surface: rgba(255,255,255,0.75);
+  --pills-border: rgba(0,0,0,0.08);
+  --pills-radius: 999px;
+}
+
+body {
+  /* small visual adjustment to align with SaaS feel */
+}
+
+/* Pill buttons (override / augment) */
+.btn {
+  border-radius: var(--pills-radius) !important;
+  padding: 0.72rem 1.35rem !important;
+  transition: transform 180ms cubic-bezier(0.25,0.1,0.25,1), box-shadow 180ms ease, opacity 180ms ease !important;
+}
+
+.btn-primary {
+  background: var(--pills-primary) !important;
+  color: var(--pills-primary-contrast) !important;
+  border-color: var(--pills-primary) !important;
+  box-shadow: 0 6px 20px rgba(17,17,17,0.08);
+}
+
+.dark .btn-primary {
+  background: var(--pills-surface) !important;
+  color: var(--text) !important;
+  border-color: var(--pills-border) !important;
+}
+
+.btn-secondary {
+  background: var(--pills-surface) !important;
+  border-color: var(--pills-border) !important;
+}
+
+.btn-ghost { color: var(--text-2) !important; }
+
+/* subtle focus ring for accessibility */
+.btn:focus {
+  outline: none;
+  box-shadow: 0 4px 18px rgba(99,102,241,0.08), 0 0 0 4px rgba(99,102,241,0.06);
+}
+
+/* small compact variant used in toolbars */
+.btn-compact { padding: 0.38rem 0.75rem; font-size: 0.78rem; }
+
+/* app-icon sizing helpers */
+.app-icon.small { width: 40px; height: 40px; border-radius: 10px; }
+.app-icon.medium { width: 56px; height: 56px; border-radius: 12px; }
+
+/* glass card subtle lift */
+.card, .glass-card { transition: transform 200ms cubic-bezier(0.25,0.1,0.25,1), box-shadow 200ms ease; }
+.card:hover, .glass-card:hover { transform: translateY(-4px); box-shadow: 0 24px 48px rgba(0,0,0,0.08); }
+
+/* small utility tweaks */
+.text-muted { color: var(--text-2) !important; }
+
+/* Version dropdown menu — solid non-transparent background */
+.version-menu-dropdown {
+  border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+  overflow: hidden;
+  border: 1px solid var(--border-strong, rgba(0,0,0,0.12));
+}
+.version-menu-dropdown .menu-inner {
+  padding: 10px;
+  /* use design tokens so background follows current theme (light/dark) */
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+
+/* menu filter pills */
+.version-filter-pill {
+  padding: 6px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 500; cursor: pointer;
+  border: 1px solid transparent; background: transparent; color: var(--text-3);
+}
+.version-filter-pill.active {
+  background: var(--surface); color: var(--text); border-color: var(--border-strong);
+}
+
+/* menu list items */
+.version-item { padding: 9px 12px; display:flex; justify-content:space-between; align-items:center; font-size:0.92rem; cursor:pointer; }
+.version-item.highlight { background: var(--surface); }
+
+/* end */

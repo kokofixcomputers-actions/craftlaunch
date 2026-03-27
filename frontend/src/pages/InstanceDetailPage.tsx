@@ -7,7 +7,7 @@ import LogViewer from '../components/LogViewer';
 type Tab = 'overview' | 'mods' | 'resourcepacks' | 'shaderpacks' | 'libraries' | 'settings';
 
 const LOADER_COLORS: Record<string, string> = {
-  fabric: '#b6844b', forge: '#346aa9', neoforge: '#e07c2e', quilt: '#9b59b6', vanilla: '#4ade80',
+  fabric: 'var(--text-2)', forge: 'var(--text-2)', neoforge: 'var(--text-2)', quilt: 'var(--text-2)', vanilla: 'var(--green-text)',
 };
 const LWJGL_OPTIONS = [
   { value: '', label: 'Auto-detect' },
@@ -34,6 +34,8 @@ export default function InstanceDetailPage() {
   const [javaChecking, setJavaChecking] = useState(false);
   const [modMetadata, setModMetadata] = useState<Record<string, any>>({});
   const [loadingMetadata, setLoadingMetadata] = useState<Record<string, boolean>>({});
+  const [modIcons, setModIcons] = useState<Record<string, string>>({});
+  const [loadingIcons, setLoadingIcons] = useState<Record<string, boolean>>({});
   const [exporting, setExporting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [mods, setMods] = useState<any[]>([]);
@@ -137,6 +139,23 @@ export default function InstanceDetailPage() {
     setMods(prev => prev.map(m => m.id === modId ? { ...m, enabled } : m));
   };
 
+  const loadModIcon = async (modId: string) => {
+    // Skip if already loaded or loading
+    if (modIcons[modId] || loadingIcons[modId]) return;
+    
+    setLoadingIcons(prev => ({ ...prev, [modId]: true }));
+    try {
+      const iconData = await api.getModIcon(inst.id, modId);
+      if (iconData.data) {
+        setModIcons(prev => ({ ...prev, [modId]: iconData.data }));
+      }
+    } catch (e) {
+      console.error(`Failed to load icon for mod ${modId}:`, e);
+    } finally {
+      setLoadingIcons(prev => ({ ...prev, [modId]: false }));
+    }
+  };
+
   const loadModMetadata = async (modId: string) => {
     // Skip if already loaded or loading
     if (modMetadata[modId] || loadingMetadata[modId]) return;
@@ -145,6 +164,11 @@ export default function InstanceDetailPage() {
     try {
       const metadata = await api.getModMetadata(inst.id, modId);
       setModMetadata(prev => ({ ...prev, [modId]: metadata }));
+      
+      // Load icon if metadata indicates it has one
+      if (metadata.hasIcon && !modIcons[modId]) {
+        await loadModIcon(modId);
+      }
     } catch (e) {
       console.error(`Failed to load metadata for mod ${modId}:`, e);
       // Set empty metadata to prevent retrying failed mods
@@ -515,7 +539,19 @@ export default function InstanceDetailPage() {
               return (
                 <div key={mod.id} className="glass-card p-3 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: 'var(--surface-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {mod.iconUrl ? <img src={mod.iconUrl} alt="" className="w-full h-full rounded-lg object-cover" /> : <span style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>{isZipFile ? 'ZIP' : 'MOD'}</span>}
+                    {modIcons[mod.id] ? (
+                      <img src={modIcons[mod.id]} alt="" className="w-full h-full rounded-lg object-cover" />
+                    ) : (
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>
+                        {loadingIcons[mod.id] ? (
+                          <Loader size={10} className="animate-spin" />
+                        ) : isZipFile ? (
+                          'ZIP'
+                        ) : (
+                          'MOD'
+                        )}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">

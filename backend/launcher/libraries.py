@@ -115,8 +115,14 @@ def _rule_matches(rules: list) -> bool:
 def _is_pre_113(mc_version: str) -> bool:
     """Return True for Minecraft versions before 1.13 (uses LWJGL2)."""
     try:
-        return int(mc_version) < 1.13
-    except (ValueError, IndexError):
+        parts = mc_version.split('.')
+        major = int(parts[0]) if len(parts) > 0 else 0
+        minor = int(parts[1]) if len(parts) > 1 else 0
+        result = major < 1 or (major == 1 and minor < 13)
+        print(f"DEBUG: Version {mc_version} -> major={major}, minor={minor}, pre-1.13={result}")
+        return result
+    except (ValueError, IndexError) as e:
+        print(f"DEBUG: Failed to parse version {mc_version}: {e}")
         return False
 
 
@@ -162,24 +168,83 @@ def install_vanilla_libraries(
 
         # Classifiers (natives)
         classifiers = downloads.get("classifiers", {})
-        native_key  = lib.get("natives", {}).get(os_name, "")
-        # Replace ${arch} placeholder
-        native_key  = native_key.replace("${arch}", "64" if arch == "x64" else "32")
+        if classifiers:
+            # Determine classifier for this platform
+            classifier_key = f"{os_name}-{arch}"
+            if os_name == "osx":
+                if arch == "arm64" and need_arm64_patch and lwjgl_override == "lwjgl2-arm64":
+                    classifier_key = "natives-osx"  # Use our patched natives
+                else:
+                    classifier_key = "natives-osx"
+            elif os_name == "windows":
+                classifier_key = "natives-windows"
+            elif os_name == "linux":
+                classifier_key = "natives-linux"
 
-        if native_key and native_key in classifiers:
-            nat  = classifiers[native_key]
-            dest = paths.CLASSPATH_DIR / nat["path"]
-
-            if need_arm64_patch and "lwjgl" in lib_name.lower() and "platform" in nat["path"].lower():
-                # Download the official x86 natives jar anyway (needed for classpath)
-                _download(nat["url"], dest, nat.get("sha1"))
-                jars.append(dest)
-            else:
-                _download(nat["url"], dest, nat.get("sha1"))
-                jars.append(dest)
+            # Try platform-specific classifier first, then fallback
+            for key in [classifier_key, f"natives-{os_name}"]:
+                if key in classifiers:
+                    native = classifiers[key]
+                    if native.get("url"):
+                        # Special handling for arm64 macOS LWJGL2 patching
+                        if key == "natives-osx" and need_arm64_patch and lwjgl_override == "lwjgl2-arm64":
+                            # For arm64 patching, we download normally then patch later in the native extraction
+                            dest = paths.CLASSPATH_DIR / native["path"]
+                        else:
+                            dest = paths.CLASSPATH_DIR / native["path"]
+                        _download(native["url"], dest, native.get("sha1"))
+                        jars.append(dest)  # Include native jars in classpath for extraction
+                    break
 
         if progress_cb:
             progress_cb(i + 1, len(libs))
+
+    # For pre-1.13 versions, manually add launchwrapper if not present
+    if _is_pre_113(mc_version):
+        launchwrapper_found = any("launchwrapper" in str(j).lower() for j in jars)
+        print(f"DEBUG: Pre-1.13 version {mc_version}, launchwrapper found: {launchwrapper_found}")
+        
+        if not launchwrapper_found:
+            print(f"DEBUG: Launchwrapper not found for {mc_version}, adding manually")
+            # Download launchwrapper manually
+            launchwrapper_path = paths.CLASSPATH_DIR / "net/minecraft/launchwrapper/1.12/launchwrapper-1.12.jar"
+            launchwrapper_path.parent.mkdir(parents=True, exist_ok=True)
+            print(f"DEBUG: Launchwrapper target path: {launchwrapper_path}")
+            
+            if not launchwrapper_path.exists():
+                print(f"DEBUG: Launchwrapper file doesn't exist, downloading...")
+                launchwrapper_url = "https://libraries.minecraft.net/net/minecraft/launchwrapper/1.12/launchwrapper-1.12.jar"
+                try:
+                    print(f"DEBUG: Attempting to download from: {launchwrapper_url}")
+                    _download(launchwrapper_url, launchwrapper_path, None)
+                    print(f"DEBUG: Downloaded launchwrapper to {launchwrapper_path}")
+                    print(f"DEBUG: File exists after download: {launchwrapper_path.exists()}")
+                    if launchwrapper_path.exists():
+                        file_size = launchwrapper_path.stat().st_size
+                        print(f"DEBUG: Launchwrapper file size: {file_size} bytes")
+                except Exception as e:
+                    print(f"DEBUG: Failed to download launchwrapper: {e}")
+                    # Try alternative approach - use maven central
+                    try:
+                        alt_url = "https://repo1.maven.org/maven2/net/minecraft/launchwrapper/1.12/launchwrapper-1.12.jar"
+                        print(f"DEBUG: Trying alternative URL: {alt_url}")
+                        _download(alt_url, launchwrapper_path, None)
+                        print(f"DEBUG: Downloaded launchwrapper from maven central")
+                    except Exception as e2:
+                        print(f"DEBUG: Failed to download launchwrapper from maven central: {e2}")
+            else:
+                print(f"DEBUG: Launchwrapper file already exists: {launchwrapper_path}")
+                file_size = launchwrapper_path.stat().st_size
+                print(f"DEBUG: Existing launchwrapper file size: {file_size} bytes")
+            
+            if launchwrapper_path.exists():
+                jars.append(launchwrapper_path)
+                print(f"DEBUG: Added launchwrapper to classpath, total jars: {len(jars)}")
+                print(f"DEBUG: Launchwrapper in final jars list: {launchwrapper_path in jars}")
+            else:
+                print(f"DEBUG: Launchwrapper file not found after download attempt")
+        else:
+            print(f"DEBUG: Launchwrapper already present in classpath")
 
     return jars
 
@@ -318,7 +383,7 @@ def install_forge_libs(mc_version: str, forge_version: str, java_path: str, prog
     subprocess.run([java_path, "-jar", str(installer_path), "--installClient", str(install_dir)],
                    capture_output=True, text=True, timeout=300)
     jars = list(install_dir.rglob("*.jar"))
-    main_class = "cpw.mods.bootstraplauncher.BootstrapLauncher"
+    main_class = "net.minecraft.launchwrapper.Launch"
     for vj in (install_dir / "versions").rglob("*.json") if (install_dir / "versions").exists() else []:
         try:
             with open(vj) as f:
@@ -343,7 +408,7 @@ def install_neoforge_libs(mc_version: str, neoforge_version: str, java_path: str
     subprocess.run([java_path, "-jar", str(installer_path), "--installClient", str(install_dir)],
                    capture_output=True, text=True, timeout=300)
     jars = list(install_dir.rglob("*.jar"))
-    return jars, "cpw.mods.bootstraplauncher.BootstrapLauncher"
+    return jars, "net.minecraft.launchwrapper.Launch"
 
 
 # ─── Maven helpers ────────────────────────────────────────────────────────────

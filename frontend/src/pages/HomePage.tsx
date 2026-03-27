@@ -6,7 +6,7 @@ import CreateInstanceModal from '../components/CreateInstanceModal';
 import LogViewer from '../components/LogViewer';
 
 const LOADER_DOT: Record<string, string> = {
-  fabric: '#b6844b', forge: '#346aa9', neoforge: '#e07c2e', quilt: '#9b59b6', vanilla: '#4ade80',
+  fabric: 'var(--text-2)', forge: 'var(--text-2)', neoforge: 'var(--text-2)', quilt: 'var(--text-2)', vanilla: 'var(--green-text)',
 };
 
 export default function HomePage() {
@@ -92,7 +92,7 @@ export default function HomePage() {
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3 mb-6 animate-fadeUp delay-1">
         {[
-          { icon: Layers, label: 'Instances', value: instances.length, color: '#a78bfa' },
+          { icon: Layers, label: 'Instances', value: instances.length, color: 'var(--code-color)' },
           { icon: Puzzle, label: 'Mods Installed', value: instances.reduce((acc, i) => acc + i.mods.length, 0), color: '#60a5fa' },
           { icon: Cpu, label: 'Running', value: running.length, color: '#4ade80' },
         ].map(({ icon: Icon, label, value, color }) => (

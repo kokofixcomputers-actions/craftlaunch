@@ -6,7 +6,7 @@ import CreateInstanceModal from '../components/CreateInstanceModal';
 import LogViewer from '../components/LogViewer';
 
 const LOADER_COLORS: Record<string, string> = {
-  fabric: '#b6844b', forge: '#346aa9', neoforge: '#e07c2e', quilt: '#9b59b6', vanilla: '#4ade80',
+  fabric: 'var(--text-2)', forge: 'var(--text-2)', neoforge: 'var(--text-2)', quilt: 'var(--text-2)', vanilla: 'var(--green-text)',
 };
 
 export default function InstancesPage() {

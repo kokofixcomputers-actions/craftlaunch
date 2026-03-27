@@ -167,7 +167,14 @@ def launch(
         platform.system() == "Darwin"
         and platform.machine().lower() in ("arm64", "aarch64")
     )
-    if is_macos_arm and _is_pre_113(mc_version):
+    is_pre113 = _is_pre_113(mc_version)
+    
+    print(f"DEBUG: Platform check - System: {platform.system()}, Machine: {platform.machine()}")
+    print(f"DEBUG: macOS ARM: {is_macos_arm}, Pre-1.13: {is_pre113}, Version: {mc_version}")
+    print(f"DEBUG: Should use pre113_macos_arm: {is_macos_arm and is_pre113}")
+    
+    if is_macos_arm and is_pre113:
+        print("DEBUG: Using pre113_macos_arm launch path")
         from launcher.pre113_macos_arm import main as launch_pre113_macos_arm
 
         username = user.get("username") or "Player"
@@ -301,6 +308,15 @@ def launch(
         "DEBUG",
         "Launch command: " + " ".join(str(c) for c in cmd),
     )
+    
+    # Additional debug info for troubleshooting
+    print(f"DEBUG: Launch command details:")
+    print(f"  Java executable: {java_exe}")
+    print(f"  Main class: {main_class}")
+    print(f"  Classpath entries: {len(classpath.split(':'))}")
+    print(f"  JVM arguments: {len(jvm_args)}")
+    print(f"  Game arguments: {len(game_args)}")
+    print(f"  Total command parts: {len(cmd)}")
 
     try:
         env = {**os.environ, "JAVA_HOME": str(Path(java_exe).parent.parent)}
@@ -357,18 +373,35 @@ def get_running() -> list[str]:
 def _vanilla_main_class(mc_version: str) -> str:
     try:
         manifest = get_version_manifest(mc_version)
-        return manifest.get("mainClass", "net.minecraft.client.main.Main")
-    except Exception:
+        main_class = manifest.get("mainClass", "net.minecraft.client.main.Main")
+        print(f"DEBUG: Version {mc_version} main class from manifest: '{main_class}'")
+        
+        # For versions before 1.13, they use launchwrapper
+        if _is_mc_version_older_or_equal(mc_version, "1.12.2"):
+            expected_main = "net.minecraft.launchwrapper.Launch"
+            if main_class != expected_main:
+                print(f"DEBUG: Overriding main class for {mc_version} from '{main_class}' to '{expected_main}'")
+                return expected_main
+        
+        return main_class
+    except Exception as e:
+        print(f"DEBUG: Error getting main class for {mc_version}: {e}")
         return "net.minecraft.client.main.Main"
 
 
 def _build_classpath(vanilla_libs: list, loader_jars: list, client_jar: Path) -> str:
     sep = ";" if platform.system() == "Windows" else ":"
     
+    print(f"DEBUG: Building classpath with {len(vanilla_libs)} vanilla libs, {len(loader_jars)} loader jars")
+    print(f"DEBUG: Vanilla libs: {[lib.name for lib in vanilla_libs]}")
+    print(f"DEBUG: Loader jars: {[lib.name for lib in loader_jars]}")
+    
     # Extract library names without versions for conflict detection
     def get_lib_name(jar_path: Path) -> str:
         name = jar_path.name.lower()
         # Remove version numbers (e.g., asm-9.6.jar -> asm, guava-31.1.jar -> guava)
+        import re
+        name = re.sub(r'-\d+(\.\d+)*\.jar$', '.jar', name)
         for suffix in ['.jar', '-sources.jar']:
             name = name.replace(suffix, '')
         # Split by last dash to separate name from version
@@ -407,7 +440,15 @@ def _build_classpath(vanilla_libs: list, loader_jars: list, client_jar: Path) ->
     # Always add client jar
     final_jars.append(client_jar)
     
-    return sep.join(str(j) for j in final_jars)
+    classpath_str = sep.join(str(j) for j in final_jars)
+    print(f"DEBUG: Final classpath has {len(final_jars)} jars")
+    print(f"DEBUG: Final classpath (first 200 chars): {classpath_str[:200]}...")
+    
+    # Check if launchwrapper is in classpath for older versions
+    has_launchwrapper = any("launchwrapper" in str(j).lower() for j in final_jars)
+    print(f"DEBUG: Launchwrapper in classpath: {has_launchwrapper}")
+    
+    return classpath_str
 
 
 def _extract_natives(mc_version: str, vanilla_libs: list[Path],

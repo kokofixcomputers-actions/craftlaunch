@@ -91,6 +91,7 @@ export const api = {
   toggleMod:     (instanceId: string, modId: string, enabled: boolean) => call<void>('toggleMod', instanceId, modId, enabled),
 
   getModMetadata: (instanceId: string, modId: string) => call<any>('getModMetadata', instanceId, modId),
+  getModIcon:      (instanceId: string, modId: string) => call<any>('getModIcon', instanceId, modId),
 
   getMods: (instanceId: string) => call<any[]>('getMods', instanceId),
 
@@ -209,6 +210,9 @@ const mockHandlers: Record<string, (...args: any[]) => any> = {
       displayDescription: 'This is a mock mod description extracted from JAR file.',
       modloader: 'forge',
       mcversion: '1.20.1',
+      hasIcon: false,
+      iconFilename: '',
+      iconSize: 0,
       extractedMetadata: {
         modid: modId,
         name: `Mock Mod ${modId.slice(0, 8)}`,
@@ -218,6 +222,10 @@ const mockHandlers: Record<string, (...args: any[]) => any> = {
         author: 'Mock Author'
       }
     };
+  },
+  getModIcon: (instanceId: string, modId: string) => {
+    // Mock implementation - return empty result for dev mode
+    throw new Error('Icon extraction not available in mock mode');
   },
   getMods: (instanceId: string) => {
     // Mock implementation - in real app this would scan mods folder

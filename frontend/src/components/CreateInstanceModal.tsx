@@ -44,6 +44,59 @@ export default function CreateInstanceModal({ onClose }: Props) {
   const [importedFile, setImportedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Version dropdown (searchable) state & refs
+  const versionMenuRef = useRef<HTMLDivElement>(null);
+  const versionSearchInputRef = useRef<HTMLInputElement>(null);
+  const [versionMenuOpen, setVersionMenuOpen] = useState(false);
+  const [versionSearch, setVersionSearch] = useState('');
+  const [versionMenuType, setVersionMenuType] = useState<'all'|'release'|'snapshot'|'beta'|'alpha'>('all');
+  const [highlightedVersionIndex, setHighlightedVersionIndex] = useState(0);
+  const [menuVersions, setMenuVersions] = useState<any[] | null>(null);
+
+  // fetch all versions once on mount so in-menu filters work immediately
+  useEffect(() => {
+    if (menuVersions === null) {
+      api.getVersionsFiltered('all').then(vs => setMenuVersions(vs)).catch(() => setMenuVersions([]));
+    }
+  }, []);
+
+  // also ensure when opening menu, menuVersions exists (fallback fetch)
+  useEffect(() => {
+    if (versionMenuOpen && menuVersions === null) {
+      api.getVersionsFiltered('all').then(vs => setMenuVersions(vs)).catch(() => setMenuVersions([]));
+    }
+  }, [versionMenuOpen, menuVersions]);
+
+  // derived visible versions for the dropdown (search + in-menu type filter)
+  const sourceVersions = menuVersions ?? filteredVersions;
+  const visibleVersions = sourceVersions.filter((v: any) => {
+    const q = versionSearch.trim().toLowerCase();
+    // type mapping
+    if (versionMenuType !== 'all') {
+      if (versionMenuType === 'beta' && v.type !== 'old_beta') return false;
+      if (versionMenuType === 'alpha' && v.type !== 'old_alpha') return false;
+      if (versionMenuType === 'release' && v.type !== 'release') return false;
+      if (versionMenuType === 'snapshot' && v.type !== 'snapshot') return false;
+    }
+    if (!q) return true;
+    return v.id.toLowerCase().includes(q) || (v.type || '').toLowerCase().includes(q);
+  });
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (versionMenuRef.current && !versionMenuRef.current.contains(e.target as Node)) {
+        setVersionMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  useEffect(() => {
+    // reset highlight when search/type/versions change
+    setHighlightedVersionIndex(0);
+  }, [versionSearch, versionMenuType, sourceVersions]);
+
   // Fetch versions by filter
   useEffect(() => {
     setLoadingVersions(true);
@@ -195,8 +248,8 @@ export default function CreateInstanceModal({ onClose }: Props) {
               borderRadius: '6px',
               fontSize: '0.85rem',
               fontWeight: 500,
-              background: activeTab === 'create' ? 'rgba(139,92,246,0.18)' : 'transparent',
-              color: activeTab === 'create' ? '#c4b5fd' : 'var(--text-3)',
+              background: activeTab === 'create' ? 'var(--surface-strong)' : 'transparent',
+              color: activeTab === 'create' ? 'var(--text)' : 'var(--text-3)',
               cursor: 'pointer',
               transition: 'all 0.15s',
               border: 'none',
@@ -212,8 +265,8 @@ export default function CreateInstanceModal({ onClose }: Props) {
               borderRadius: '6px',
               fontSize: '0.85rem',
               fontWeight: 500,
-              background: activeTab === 'import' ? 'rgba(139,92,246,0.18)' : 'transparent',
-              color: activeTab === 'import' ? '#c4b5fd' : 'var(--text-3)',
+              background: activeTab === 'import' ? 'var(--surface-strong)' : 'transparent',
+              color: activeTab === 'import' ? 'var(--text)' : 'var(--text-3)',
               cursor: 'pointer',
               transition: 'all 0.15s',
               border: 'none',
@@ -240,9 +293,9 @@ export default function CreateInstanceModal({ onClose }: Props) {
                     <button key={f.value} onClick={() => setVersionFilter(f.value)}
                       style={{
                         padding: '0.25rem 0.75rem', borderRadius: 999, fontSize: '0.72rem', fontWeight: 500,
-                        background: versionFilter === f.value ? 'rgba(139,92,246,0.18)' : 'var(--surface)',
-                        border: `1px solid ${versionFilter === f.value ? 'rgba(139,92,246,0.35)' : 'var(--border)'}`,
-                        color: versionFilter === f.value ? '#c4b5fd' : 'var(--text-3)', cursor: 'pointer',
+                        background: versionFilter === f.value ? 'var(--surface-strong)' : 'var(--surface)',
+                        border: `1px solid ${versionFilter === f.value ? 'var(--border-strong)' : 'var(--border)'}`,
+                        color: versionFilter === f.value ? 'var(--text)' : 'var(--text-3)', cursor: 'pointer',
                         transition: 'all 0.15s',
                       }}>
                       {f.label}
@@ -254,13 +307,77 @@ export default function CreateInstanceModal({ onClose }: Props) {
                     <Loader size={12} className="animate-spin" /> Fetching versions…
                   </div>
                 ) : (
-                  <select className="input" value={mcVersion} onChange={e => setMcVersion(e.target.value)}>
-                    {filteredVersions.map((v: any) => (
-                      <option key={v.id} value={v.id}>
-                        {v.id}{v.type !== 'release' ? ` (${v.type.replace('old_', '')})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{ position: 'relative' }} ref={versionMenuRef}>
+                    <button
+                      type="button"
+                      className="input"
+                      onClick={() => { setVersionMenuOpen(v => !v); setTimeout(() => versionSearchInputRef.current?.focus(), 10); setVersionSearch(''); setVersionMenuType('all'); }}
+                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowDown') { e.preventDefault(); setVersionMenuOpen(true); setHighlightedVersionIndex(0); setTimeout(() => versionSearchInputRef.current?.focus(), 10); }
+                      }}
+                    >
+                      <span>{mcVersion || 'Select version...'}</span>
+                      <ChevronDown size={14} />
+                    </button>
+
+                    {versionMenuOpen && (
+                      <div style={{ position: 'absolute', zIndex: 60, left: 0, right: 0, marginTop: 6 }}>
+                        <div className="version-menu-dropdown">
+                          <div className="menu-inner">
+                            {/* in-menu filters */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                              {[
+                                { key: 'all', label: 'All' },
+                                { key: 'release', label: 'Release' },
+                                { key: 'snapshot', label: 'Snapshot' },
+                                { key: 'beta', label: 'Beta' },
+                                { key: 'alpha', label: 'Alpha' },
+                              ].map(f => (
+                                <button
+                                  key={f.key}
+                                  onClick={() => { setVersionMenuType(f.key as any); setHighlightedVersionIndex(0); }}
+                                  className={`version-filter-pill ${versionMenuType === f.key ? 'active' : ''}`}
+                                  style={{ cursor: 'pointer' }}
+                                >{f.label}</button>
+                              ))}
+                            </div>
+
+                            <input
+                              ref={versionSearchInputRef}
+                              placeholder="Search versions..."
+                              value={versionSearch}
+                              onChange={e => { setVersionSearch(e.target.value); setHighlightedVersionIndex(0); }}
+                              className="input"
+                              style={{ width: '100%', marginBottom: 8 }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightedVersionIndex(i => Math.min(i + 1, visibleVersions.length - 1)); }
+                                if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightedVersionIndex(i => Math.max(i - 1, 0)); }
+                                if (e.key === 'Enter') { e.preventDefault(); const v = visibleVersions[highlightedVersionIndex]; if (v) { setMcVersion(v.id); setVersionMenuOpen(false); setVersionSearch(''); } }
+                                if (e.key === 'Escape') { setVersionMenuOpen(false); }
+                              }}
+                            />
+                            <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                              {visibleVersions.map((v: any, idx: number) => (
+                                <div
+                                  key={v.id}
+                                  onMouseEnter={() => setHighlightedVersionIndex(idx)}
+                                  onMouseDown={(e) => { e.preventDefault(); setMcVersion(v.id); setVersionMenuOpen(false); setVersionSearch(''); }}
+                                  className={`version-item ${idx === highlightedVersionIndex ? 'highlight' : ''}`}
+                                >
+                                  <div>{v.id}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>{v.type !== 'release' ? v.type.replace('old_', '') : ''}</div>
+                                </div>
+                              ))}
+                              {visibleVersions.length === 0 && (
+                                <div style={{ padding: '10px', color: 'var(--text-3)' }}>No results</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -272,9 +389,9 @@ export default function CreateInstanceModal({ onClose }: Props) {
                     <button key={l} onClick={() => setLoader(l)}
                       style={{
                         padding: '0.4rem 0.9rem', borderRadius: 999, fontSize: '0.78rem', fontWeight: 500,
-                        background: loader === l ? 'rgba(139,92,246,0.18)' : 'var(--surface)',
-                        border: `1px solid ${loader === l ? 'rgba(139,92,246,0.35)' : 'var(--border)'}`,
-                        color: loader === l ? '#c4b5fd' : 'var(--text-2)', cursor: 'pointer', transition: 'all 0.15s',
+                        background: loader === l ? 'var(--surface-strong)' : 'var(--surface)',
+                        border: `1px solid ${loader === l ? 'var(--border-strong)' : 'var(--border)'}`,
+                        color: loader === l ? 'var(--text)' : 'var(--text-2)', cursor: 'pointer', transition: 'all 0.15s',
                       }}>
                       {l.charAt(0).toUpperCase() + l.slice(1)}
                     </button>
@@ -308,13 +425,13 @@ export default function CreateInstanceModal({ onClose }: Props) {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Memory (RAM)</label>
-                  <span style={{ fontSize: '0.78rem', color: '#a78bfa', fontFamily: 'DM Mono', fontWeight: 500 }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--code-color)', fontFamily: 'DM Mono', fontWeight: 500 }}>
                     {(ram / 1024).toFixed(1)} GB
                   </span>
                 </div>
                 <input type="range" min={512} max={16384} step={512} value={ram}
                   onChange={e => setRam(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#8b5cf6' }} />
+                  style={{ width: '100%', accentColor: 'var(--code-color)' }} />
                 <div className="flex justify-between" style={{ fontSize: '0.65rem', color: 'var(--text-3)', marginTop: 2 }}>
                   <span>512 MB</span><span>16 GB</span>
                 </div>
@@ -370,12 +487,12 @@ export default function CreateInstanceModal({ onClose }: Props) {
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: `2px dashed ${isDragging ? '#8b5cf6' : 'var(--border)'}`,
+                    border: `2px dashed ${isDragging ? 'var(--border-strong)' : 'var(--border)'}`,
                     borderRadius: '12px',
                     padding: '2rem',
                     textAlign: 'center',
                     cursor: 'pointer',
-                    background: isDragging ? 'rgba(139,92,246,0.05)' : 'var(--surface)',
+                    background: isDragging ? 'var(--surface-strong)' : 'var(--surface)',
                     transition: 'all 0.2s',
                     minHeight: '120px',
                     display: 'flex',
@@ -387,7 +504,7 @@ export default function CreateInstanceModal({ onClose }: Props) {
                 >
                   {importedFile ? (
                     <>
-                      <FileText size={32} style={{ color: '#8b5cf6' }} />
+                      <FileText size={32} style={{ color: 'var(--code-color)' }} />
                       <div>
                         <div style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-1)' }}>
                           {importedFile.name}

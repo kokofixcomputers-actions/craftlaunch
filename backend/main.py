@@ -8,6 +8,7 @@ Usage:
 
 import sys
 import os
+import signal
 import platform
 from pathlib import Path
 
@@ -32,6 +33,24 @@ def main():
     window_ref: list = []
     api = LauncherAPI(window_ref)
 
+    # Add shutdown handler
+    shutdown_completed = False
+    
+    def perform_shutdown():
+        nonlocal shutdown_completed
+        if shutdown_completed:
+            return  # Prevent multiple shutdowns
+        
+        print("[DEBUG] Performing shutdown...")
+        shutdown_completed = True
+        
+        try:
+            # Call API shutdown to save any pending data
+            api.shutdown()
+            print("[DEBUG] Shutdown completed successfully")
+        except Exception as e:
+            print(f"[DEBUG] Shutdown error: {e}")
+
     if dev_mode:
         url = DEV_URL
     else:
@@ -52,10 +71,18 @@ def main():
         frameless=True,          # Custom title bar from React
         easy_drag=False,         # We handle drag in CSS
         background_color="#0e0f14",
-        confirm_close=False,
+        confirm_close=True,      # Enable closing event handling
     )
 
     window_ref.append(window)
+
+    # Add closing event handler
+    def on_closing():
+        print("[DEBUG] Window closing event triggered (e.g., from Cmd+Q)")
+        perform_shutdown()
+        return True  # Allow closing after shutdown
+
+    window.events.closing += on_closing
 
     # Platform-specific webview settings
     gui = None
@@ -64,10 +91,16 @@ def main():
     elif platform.system() == "Windows":
         gui = "edgechromium"
 
+    # Start webview
     webview.start(
         debug=dev_mode,
         gui=gui,
     )
+    
+    # This runs after webview closes naturally (if closing event wasn't triggered)
+    if not shutdown_completed:
+        print("[DEBUG] Webview closed without event, performing shutdown...")
+        perform_shutdown()
 
 
 if __name__ == "__main__":

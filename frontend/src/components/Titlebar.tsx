@@ -1,8 +1,16 @@
 import { useStore } from '../store';
 import { api } from '../api/bridge';
+import { Home, Layers, Puzzle, Settings } from 'lucide-react';
 
 export default function Titlebar() {
-  const { windowFocused } = useStore();
+  const { windowFocused, page, navigate } = useStore();
+
+  const quickNav = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'instances', label: 'Instances', icon: Layers },
+    { id: 'mods', label: 'Mods', icon: Puzzle },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
 
   return (
     // The ENTIRE bar is a drag region — buttons are no-drag inside it.
@@ -59,6 +67,45 @@ export default function Titlebar() {
         transition: 'color 0.3s ease',
       }}>
         CraftLaunch
+      </div>
+
+      {/* Quick navigation buttons — must be no-drag so clicks register */}
+      <div className="no-drag" style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 'auto' }}>
+        {quickNav.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => navigate(id as any)}
+            title={label}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '6px',
+              border: 'none',
+              background: page === id ? 'var(--surface-strong)' : 'transparent',
+              color: page === id ? 'var(--text)' : 'var(--text-3)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s ease',
+              padding: 0,
+            }}
+            onMouseEnter={(e) => {
+              if (page !== id) {
+                e.currentTarget.style.background = 'var(--surface)';
+                e.currentTarget.style.color = 'var(--text-2)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (page !== id) {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-3)';
+              }
+            }}
+          >
+            <Icon size={14} strokeWidth={1.5} />
+          </button>
+        ))}
       </div>
     </div>
   );

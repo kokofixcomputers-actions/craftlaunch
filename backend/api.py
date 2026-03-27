@@ -22,10 +22,7 @@ from typing import Optional
 import webview
 
 import paths
-from auth.users_store import (
-    load_users, save_users, upsert_user, remove_user as _remove_user_store,
-    set_active_user as _set_active_store, update_tokens, get_active_user, get_user,
-)
+from auth.users_store import save_on_shutdown, load_users, save_users, upsert_user, remove_user as _remove_user_store, set_active_user as _set_active_store, update_tokens, get_active_user, get_user
 from auth.microsoft import (
     start_login_flow,
     authenticate_from_refresh,
@@ -134,6 +131,10 @@ class LauncherAPI:
                 self._active_users[userId]["accessToken"] = result["accessToken"]
                 if result.get("refreshToken"):
                     self._active_users[userId]["refreshToken"] = result["refreshToken"]
+            
+            # IMPORTANT: Also save the updated tokens to users.json
+            update_tokens(userId, result["accessToken"], result.get("refreshToken", refreshToken))
+            
             return _ok({"accessToken": result["accessToken"],
                         "refreshToken": result.get("refreshToken", refreshToken)})
         except Exception as e:
@@ -1244,7 +1245,7 @@ class LauncherAPI:
             
             # Create display data
             display_data = {
-                "id": modId,
+                "id": mod_file.stem,
                 "filename": mod_file.name,
                 "name": mod_file.stem,
                 "version": "unknown",
@@ -1255,14 +1256,86 @@ class LauncherAPI:
                 "displayAuthor": metadata.get("author", "Unknown"),
                 "displayDescription": metadata.get("description", ""),
                 "modloader": metadata.get("modloader", "unknown"),
-                "mcversion": metadata.get("mcversion", "unknown")
+                "mcversion": metadata.get("mcversion", "unknown"),
+                "hasIcon": metadata.get("has_icon", False),
+                "iconFilename": metadata.get("icon_filename", ""),
+                "iconSize": metadata.get("icon_size", 0)
             }
+            
+            # Remove binary data from metadata to prevent JSON serialization issues
+            clean_metadata = metadata.copy()
+            clean_metadata.pop("_binary_icon", None)
+            display_data["extractedMetadata"] = clean_metadata
             
             print(f"  Successfully processed mod: {display_data.get('displayName', 'Unknown')}")
             return _ok(display_data)
             
         except Exception as e:
             print(f"  Error processing mod {modId}: {e}")
+            return _err(str(e))
+
+    def getModIcon(self, instanceId: str, modId: str) -> dict:
+        """
+        Get mod icon data as base64 for display in the UI.
+        """
+        try:
+            print(f"API: Getting icon for mod {modId} in instance {instanceId}")
+            
+            # Get the mods directory
+            mods_dir = paths.instance_mods_dir(instanceId)
+            if not mods_dir.exists():
+                return _err("Instance mods directory not found")
+            
+            # Find the mod file
+            mod_file = None
+            for file_path in mods_dir.glob("*.jar"):
+                # Use filename (without extension) as mod ID for matching
+                file_mod_id = file_path.stem
+                if file_mod_id == modId or file_mod_id.startswith(modId):
+                    mod_file = file_path
+                    break
+            
+            if not mod_file:
+                return _err(f"Mod file not found for {modId}")
+            
+            print(f"  Processing mod file: {mod_file}")
+            
+            # Extract metadata from JAR
+            metadata = extract_mod_metadata(mod_file)
+            
+            # Check if icon was extracted
+            binary_icon = metadata.get("_binary_icon")
+            if not binary_icon:
+                return _err("No icon found in mod")
+            
+            # Get icon metadata
+            filename = metadata.get("icon_filename", "icon.png")
+            icon_size = metadata.get("icon_size", len(binary_icon))
+            
+            # Convert icon data to base64 for frontend
+            import base64
+            icon_base64 = base64.b64encode(binary_icon).decode('utf-8')
+            if filename.lower().endswith('.png'):
+                mime_type = "image/png"
+            elif filename.lower().endswith('.jpg') or filename.lower().endswith('.jpeg'):
+                mime_type = "image/jpeg"
+            elif filename.lower().endswith('.gif'):
+                mime_type = "image/gif"
+            else:
+                mime_type = "image/png"  # Default to PNG
+            
+            icon_response = {
+                "filename": filename,
+                "size": icon_size,
+                "mimeType": mime_type,
+                "data": f"data:{mime_type};base64,{icon_base64}"
+            }
+            
+            print(f"  Successfully extracted icon: {filename} ({icon_size} bytes)")
+            return _ok(icon_response)
+            
+        except Exception as e:
+            print(f"  Error extracting icon for mod {modId}: {e}")
             return _err(str(e))
 
     # ── Logs ───────────────────────────────────────────────────────────────
@@ -1354,6 +1427,14 @@ class LauncherAPI:
 
     def getInstanceDir(self, instanceId: str) -> dict:
         return _ok(str(paths.instance_dir(instanceId)))
+
+    def shutdown(self) -> dict:
+        """Save any pending data before shutdown"""
+        try:
+            save_on_shutdown()
+            return _ok()
+        except Exception as e:
+            return _err(str(e))
 
     def getDataDir(self) -> dict:
         return _ok(str(paths.ROOT))
