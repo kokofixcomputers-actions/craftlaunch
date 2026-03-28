@@ -88,8 +88,6 @@ jobs:
             --mode=standalone `
             --windows-console-mode=disable `
             --include-package-data=webview `
-            --include-package-data=pythonnet `
-            --include-data-dir="${env:PYTHONNET_RUNTIME}=pythonnet\runtime" `
             --include-data-dir=".=." `
             --assume-yes-for-downloads `
             backend/main.py
@@ -106,6 +104,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path (Join-Path $distPath "webview\lib") | Out-Null
           Copy-Item (Join-Path $env:PYWEBVIEW_LIB "*") (Join-Path $distPath "webview\lib") -Recurse -Force
 
+          Remove-Item (Join-Path $distPath "Python.Runtime.dll") -Force -ErrorAction SilentlyContinue
           Copy-Item (Join-Path $env:PYTHONNET_RUNTIME "Python.Runtime.dll") $distPath -Force
 
       - name: Upload artifact (Windows)
