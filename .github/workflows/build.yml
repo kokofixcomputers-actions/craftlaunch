@@ -73,14 +73,7 @@ jobs:
 
       - name: Build with Nuitka
         run: |
-          python -m nuitka --mode=standalone --windows-console-mode=disable
-            --include-package-data=webview
-            --include-package-data=pythonnet
-            --include-data-dir="${env:LOCALAPPDATA}\pip\Cache\wheels\pythonnet_*\runtime=pythonnet\runtime"
-            --include-data-dir="webview\lib=webview\lib"
-            --include-data-dir=.=.
-            --assume-yes-for-downloads
-            backend/main.py
+          python -m nuitka --mode=standalone --windows-console-mode=disable --include-package-data=webview --include-package-data=pythonnet --include-data-dir="${env:LOCALAPPDATA}\pip\Cache\wheels\pythonnet_*\runtime=pythonnet\runtime" --include-data-dir="webview\lib=webview\lib" --include-data-dir=.=. --assume-yes-for-downloads backend/main.py
 
       - name: Zip standalone folder (Windows)
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
