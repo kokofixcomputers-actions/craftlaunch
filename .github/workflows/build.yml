@@ -88,7 +88,6 @@ jobs:
             --include-package-data=webview `
             --include-package-data=pythonnet `
             --include-data-dir="${env:PYTHONNET_RUNTIME}=pythonnet\runtime" `
-            --include-data-dir="webview\lib=webview\lib" `
             --include-data-dir=".=." `
             --assume-yes-for-downloads `
             backend/main.py
