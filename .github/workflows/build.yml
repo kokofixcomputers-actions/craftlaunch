@@ -102,10 +102,10 @@ jobs:
           if (-not $distDir) { throw "No standalone output folder found" }
 
           $distPath = $distDir.FullName
-          $webviewLibTarget = Join-Path $distPath "webview\lib"
-          New-Item -ItemType Directory -Force -Path $webviewLibTarget | Out-Null
 
-          Copy-Item (Join-Path $env:PYWEBVIEW_LIB "*") $webviewLibTarget -Recurse -Force
+          New-Item -ItemType Directory -Force -Path (Join-Path $distPath "webview\lib") | Out-Null
+          Copy-Item (Join-Path $env:PYWEBVIEW_LIB "*") (Join-Path $distPath "webview\lib") -Recurse -Force
+
           Copy-Item (Join-Path $env:PYTHONNET_RUNTIME "Python.Runtime.dll") $distPath -Force
 
       - name: Upload artifact (Windows)
@@ -119,7 +119,14 @@ jobs:
       - name: Build with Nuitka (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          python -m nuitka --standalone --assume-yes-for-downloads --macos-create-app-bundle backend/main.py --include-data-dir=.=. --macos-app-icon=icon.icns --macos-app-name="Nebulus Launch Pad"
+          python -m nuitka \
+            --standalone \
+            --assume-yes-for-downloads \
+            --macos-create-app-bundle \
+            backend/main.py \
+            --include-data-dir=.=. \
+            --macos-app-icon=icon.icns \
+            --macos-app-name="Nebulus Launch Pad"
 
       - name: Rename Nuitka macOS .app
         if: matrix.os == 'macos-latest'
