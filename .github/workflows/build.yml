@@ -71,10 +71,28 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Build with Nuitka
+      - name: Find pythonnet runtime
+        if: matrix.os == 'blacksmith-2vcpu-windows-2025'
+        shell: pwsh
         run: |
-          python -m nuitka --mode=standalone --windows-console-mode=disable --include-package-data=webview --include-package-data=pythonnet --include-data-dir="${env:LOCALAPPDATA}\pip\Cache\wheels\pythonnet_*\runtime=pythonnet\runtime" --include-data-dir="webview\lib=webview\lib" --include-data-dir=.=. --assume-yes-for-downloads backend/main.py
+          $runtimeDir = python -c "import pythonnet, pathlib; print(pathlib.Path(pythonnet.__file__).parent / 'runtime')"
+          echo "PYTHONNET_RUNTIME=$runtimeDir" >> $env:GITHUB_ENV
 
+      - name: Build with Nuitka
+        if: matrix.os == 'blacksmith-2vcpu-windows-2025'
+        shell: pwsh
+        run: |
+          python -m nuitka `
+            --mode=standalone `
+            --windows-console-mode=disable `
+            --include-package-data=webview `
+            --include-package-data=pythonnet `
+            --include-data-dir="${env:PYTHONNET_RUNTIME}=pythonnet\runtime" `
+            --include-data-dir="webview\lib=webview\lib" `
+            --include-data-dir=".=." `
+            --assume-yes-for-downloads `
+            backend/main.py
+            
       - name: Zip standalone folder (Windows)
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
         shell: pwsh
