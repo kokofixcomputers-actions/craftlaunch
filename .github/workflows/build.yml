@@ -86,7 +86,6 @@ jobs:
         run: |
           python -m nuitka `
             --mode=standalone `
-            --windows-console-mode=disable `
             --include-package-data=webview `
             --include-data-dir=".=." `
             --assume-yes-for-downloads `
