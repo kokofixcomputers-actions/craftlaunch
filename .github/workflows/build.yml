@@ -92,7 +92,7 @@ jobs:
             --assume-yes-for-downloads `
             backend/main.py
 
-      - name: Fix Windows runtime layout
+      - name: Apply Windows post-build fixes
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
         shell: pwsh
         run: |
@@ -102,10 +102,17 @@ jobs:
           $distPath = $distDir.FullName
 
           New-Item -ItemType Directory -Force -Path (Join-Path $distPath "webview\lib") | Out-Null
-          Copy-Item (Join-Path $env:PYWEBVIEW_LIB "*") (Join-Path $distPath "webview\lib") -Recurse -Force
 
-          Remove-Item (Join-Path $distPath "Python.Runtime.dll") -Force -ErrorAction SilentlyContinue
-          Copy-Item (Join-Path $env:PYTHONNET_RUNTIME "Python.Runtime.dll") $distPath -Force
+          Copy-Item `
+            (Join-Path $env:PYTHONNET_RUNTIME "Python.Runtime.dll") `
+            $distPath `
+            -Force
+
+          Copy-Item `
+            (Join-Path $env:PYWEBVIEW_LIB "*") `
+            (Join-Path $distPath "webview\lib") `
+            -Recurse `
+            -Force
 
       - name: Upload artifact (Windows)
         if: matrix.os == 'blacksmith-2vcpu-windows-2025'
