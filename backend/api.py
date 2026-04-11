@@ -284,6 +284,7 @@ class LauncherAPI:
                 ram                = int(data.get("ram", 2048)),
                 description        = data.get("description", ""),
                 lwjgl_override     = data.get("lwjglOverride") or None,
+                mods               = [],
             )
             return _ok(instance)
         except Exception as e:
