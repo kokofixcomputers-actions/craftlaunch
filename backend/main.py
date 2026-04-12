@@ -11,15 +11,18 @@ import os
 import signal
 import platform
 from pathlib import Path
-from pythonnet import set_runtime
-set_runtime("netfx")
-
-base_dir = Path(__file__).resolve().parent
-pydll = base_dir / "python311.dll"   # change if you're on 3.11/3.12 etc.
-
-if pydll.exists():
-    os.environ["PYTHONNET_PYDLL"] = str(pydll)
-    os.environ["BASE_DIR"] = str(base_dir)
+try:
+    from pythonnet import set_runtime
+    set_runtime("netfx")
+    
+    base_dir = Path(__file__).resolve().parent
+    pydll = base_dir / "python311.dll"   # change if you're on 3.11/3.12 etc.
+    
+    if pydll.exists():
+        os.environ["PYTHONNET_PYDLL"] = str(pydll)
+        os.environ["BASE_DIR"] = str(base_dir)
+except:
+    pass
 
 import webview
 import paths
