@@ -51,16 +51,20 @@ pipeline {
         stage('Frontend deps (Node.js)') {
             steps {
                 bat '''
+                    @echo off
                     echo Node version:
                     node -v
         
                     if exist frontend (
                       cd frontend
-                      echo Installing frontend dependencies...
+                      echo Installing Node.js dependencies...
                       npm install
         
                       echo Running npm audit (non-fatal)...
-                      npm audit || echo npm audit returned non-zero exit, ignoring for now
+                      npm audit
+                      if errorlevel 1 (
+                        echo npm audit reported issues, but build will continue.
+                      )
                     ) else (
                       echo No frontend directory, skipping npm steps
                     )
