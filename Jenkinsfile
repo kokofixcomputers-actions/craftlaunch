@@ -54,19 +54,21 @@ pipeline {
                     @echo off
                     echo Node version:
                     node -v
-        
-                    if exist frontend (
-                      cd frontend
-                      echo Installing Node.js dependencies...
-                      npm install
-        
-                      echo Running npm audit (non-fatal)...
-                      npm audit
-                      if errorlevel 1 (
-                        echo npm audit reported issues, but build will continue.
-                      )
-                    ) else (
+                    
+                    if not exist frontend (
                       echo No frontend directory, skipping npm steps
+                      goto :EOF
+                    )
+                    
+                    cd frontend
+                    
+                    echo Installing Node.js dependencies...
+                    npm install
+                    
+                    echo Running npm audit (non-fatal)...
+                    npm audit
+                    if errorlevel 1 (
+                      echo npm audit reported issues, but build will continue.
                     )
                 '''
             }
