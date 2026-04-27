@@ -48,18 +48,21 @@ pipeline {
             }
         }
 
-        stage('Prepare frontend/backend') {
+        stage('Frontend deps (Node.js)') {
             steps {
                 bat '''
-                    REM Remove frontend\\node_modules like: rm -rf frontend/node_modules
-                    if exist frontend\\node_modules (
-                        rmdir /s /q frontend\\node_modules
-                    )
-
-                    REM Move backend\\web -> .\\web like: mv backend/web ./web
-                    if exist backend\\web (
-                        if exist web rmdir /s /q web
-                        move backend\\web web
+                    echo Node version:
+                    node -v
+        
+                    if exist frontend (
+                      cd frontend
+                      echo Installing frontend dependencies...
+                      npm install
+        
+                      echo Running npm audit (non-fatal)...
+                      npm audit || echo npm audit returned non-zero exit, ignoring for now
+                    ) else (
+                      echo No frontend directory, skipping npm steps
                     )
                 '''
             }
